@@ -26,3 +26,6 @@ include workflow/uml/uml.mk
 
 # The simple-attest demo
 include workflow/simple-attest.mk
+
+# RQLite containers, for our clustered, multi-master DB
+include workflow/rqlite/rqlite.mk

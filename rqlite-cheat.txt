@@ -1,0 +1,11 @@
+#CURL=curl -D foobar --connect-to rqlite1:4001:localhost:4001 --connect-to rqlite2:4001:localhost:4002 -L --post301
+
+# Create the foo table
+curl -XPOST 'localhost:4001/db/execute?pretty&timings' -H "Content-Type: application/json" -d '[ "CREATE TABLE foo (id INTEGER NOT NULL UNIQUE PRIMARY KEY, name TEXT, age INTEGER)" ]'
+
+# Insert into the foo table
+curl -XPOST 'localhost:4001/db/execute?pretty&timings' -H "Content-Type: application/json" -d '[ "INSERT INTO foo(name, age) VALUES(\"fiona\", 20)" ]'
+
+# Query the foo table
+curl -G 'localhost:4001/db/query?pretty&timings' --data-urlencode 'q=SELECT * FROM foo'
+
