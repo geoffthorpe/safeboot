@@ -15,7 +15,7 @@ vtailwait_DEST := /safeboot/tail_wait.pl
 NETWORKS += n-attest
 
 MSGBUS := $(DEFAULT_CRUD)/msgbus_simple-attest
-MSGBUSAUTO := client server git
+MSGBUSAUTO := client server git x509
 
 IMAGES += simple-attest-client
 simple-attest-client_EXTENDS := $(ibase-RESULT)
@@ -76,6 +76,23 @@ simple-attest-git_ARGS_DOCKER_RUN := \
 	--env=REPO_PREFIX="$(vgit_DEST)" \
 	-p 5000:5000
 
+VOLUMES += vx509
+vx509_MANAGED := true
+vx509_DEST := /x509
+IMAGES += simple-attest-x509
+simple-attest-x509_EXTENDS := $(ibase-RESULT)
+simple-attest-x509_PATH := $(TOPDIR)/workflow/simple-attest-x509
+simple-attest-x509_COMMANDS := shell run setup reset
+simple-attest-x509_VOLUMES := vtailwait vx509
+simple-attest-x509_NETWORKS := n-attest
+simple-attest-x509_run_COMMAND := /run_x509.sh
+simple-attest-x509_run_PROFILES := detach_join
+simple-attest-x509_run_MSGBUS := $(MSGBUS)
+simple-attest-x509_setup_COMMAND := /setup_x509.sh
+simple-attest-x509_setup_PROFILES := batch
+simple-attest-x509_setup_MSGBUS := $(MSGBUS)
+simple-attest-x509_setup_STICKY := true
+
 # Digest and process the above definitions (generate a Makefile and source it
 # back in) before continuing. In that way, we can build subsequent definitions
 # not just using what we defined above, but also using what the Mariner
@@ -89,17 +106,23 @@ S:=simple-attest
 SC:=$S-client
 SS:=$S-server
 SG:=$S-git
+SX:=$S-x509
 SCRun:=$(SC)_run
 SSRun:=$(SS)_run
 SGRun:=$(SG)_run
+SXRun:=$(SX)_run
 SGSetup:=$(SG)_setup
+SXSetup:=$(SX)_setup
 SCRunLaunch:=$($(SCRun)_JOINFILE)
 SSRunLaunch:=$($(SSRun)_JOINFILE)
 SGRunLaunch:=$($(SGRun)_JOINFILE)
+SXRunLaunch:=$($(SXRun)_JOINFILE)
 SCRunWait:=$($(SCRun)_DONEFILE)
 SSRunWait:=$($(SSRun)_DONEFILE)
 SGRunWait:=$($(SGRun)_DONEFILE)
+SXRunWait:=$($(SXRun)_DONEFILE)
 SGRunKilled:=$(DEFAULT_CRUD)/ztouch-$(SG)-killed
+SXRunKilled:=$(DEFAULT_CRUD)/ztouch-$(SX)-killed
 SUnderway:=$(DEFAULT_CRUD)/ztouch-$S-underway
 SMsgbus:=$(DEFAULT_CRUD)/ztouch-$S-msgbus
 SDeps:=$(foreach i,swtpm tpm2-tools,$(ibuild-$i_install_TOUCHFILE)) $(n-attest_TOUCHFILE)
@@ -118,6 +141,19 @@ start-git: $(SGRunLaunch)
 stop-git: $(SGRunWait)
 reset-git: vgit_delete
 	$Qrm -f $($(SGSetup)_TOUCHFILE)
+
+# Similarly, the x509 server.
+$(SXRunKilled): $(SXRunLaunch)
+	$Qecho "Signaling $(SX) to exit"
+	$Qecho "die" > $(MSGBUS)/x509-ctrl
+	$Qtouch $@
+$(SXRunWait): $(SXRunKilled)
+$(SXRunLaunch): $($(SXSetup)_TOUCHFILE)
+setup-x509: $($(SXSetup)_TOUCHFILE)
+start-x509: $(SXRunLaunch)
+stop-x509: $(SXRunWait)
+reset-x509: vx509_delete
+	$Qrm -f $($(SXSetup)_TOUCHFILE)
 
 # Trail of dependencies for the "simple-attest" use-case;
 # A: "simple-attest" depends on;
@@ -177,13 +213,18 @@ $S-clean:
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh image $(DSPACE)_$(SC)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh image $(DSPACE)_$(SS)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh image $(DSPACE)_$(SG)
+	$Q$(TOPDIR)/workflow/assist_cleanup.sh image $(DSPACE)_$(SX)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh volume $(vgit_SOURCE)
+	$Q$(TOPDIR)/workflow/assist_cleanup.sh volume $(vx509_SOURCE)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(vgit_TOUCHFILE)
+	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(vx509_TOUCHFILE)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SCRunLaunch)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SSRunLaunch)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SGRunLaunch)
+	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SXRunLaunch)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SCRunWait)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SSRunWait)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SGRunWait)
+	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(SXRunWait)
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh network $(DSPACE)_n-attest
 	$Q$(TOPDIR)/workflow/assist_cleanup.sh jfile $(n-attest_TOUCHFILE)

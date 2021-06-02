@@ -1,2 +1,5 @@
 /crud/
 /base/2apt-usable/timezone
+# Parent directory has "bin" in its gitignore rules but simple-attest-x509 has
+# a bin directory in its source
+!bin
