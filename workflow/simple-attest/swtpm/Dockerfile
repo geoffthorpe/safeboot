@@ -1,4 +1,4 @@
-RUN apt-get install -y python3-yaml python3-distutils python3-cryptography
+RUN apt-get install -y python3-yaml python3-distutils python3-cryptography json-glib-tools
 ARG SUBMODULES
 ARG DIR
 ENV SUBMODULES=$SUBMODULES

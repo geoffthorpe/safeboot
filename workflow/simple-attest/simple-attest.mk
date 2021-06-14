@@ -259,7 +259,8 @@ $(eval $(call workflow_new_edge,simple-attest,client_launched,swtpm_setup))
 #   server's one-time initialization (server-rw's "setup") to do an initial
 #   git-clone. But so long as that has already happened, the database doesn't
 #   have to be running for the server to be running.
-$(eval $(call workflow_new_edge,simple-attest,server-rw_setup,db-ro_launched))
+$(if $(server-rw_IS_SET_UP),,\
+	$(eval $(call workflow_new_edge,simple-attest,server-rw_setup,db-ro_launched)))
 # - the attestation server (server-ro) should be running before the host (client)
 #   can be launched, as the client will immediately try to connect to it.
 $(eval $(call workflow_new_edge,simple-attest,client_launched,server-ro_launched))

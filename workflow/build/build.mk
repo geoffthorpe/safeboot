@@ -129,11 +129,9 @@ libtpms_CONFIGURE_PROFILE := autogen
 libtpms_CONFIGURE_ARGS := --with-openssl --with-tpm2
 swtpm_SUBMODULE_DEPS := libtpms
 swtpm_CONFIGURE_PROFILE := autogen
-swtpm_CONFIGURE_ENVS := LIBTPMS_LIBS LIBTPMS_CFLAGS INSTALL_EXTRA_TARGETS UNINSTALL_EXTRA_TARGETS
+swtpm_CONFIGURE_ENVS := LIBTPMS_LIBS LIBTPMS_CFLAGS
 swtpm_CONFIGURE_ENVS_LIBTPMS_LIBS := -L$(vilibtpms_DEST)/lib -ltpms
 swtpm_CONFIGURE_ENVS_LIBTPMS_CFLAGS := -I$(vilibtpms_DEST)/include
-swtpm_CONFIGURE_ENVS_INSTALL_EXTRA_TARGETS := python-install
-swtpm_CONFIGURE_ENVS_UNINSTALL_EXTRA_TARGETS := python-uninstall
 ifeq (,$(ENABLE_UPSTREAM_TPM2))
 tpm2-tss_CONFIGURE_PROFILE := bootstrap
 tpm2-tss_CONFIGURE_ARGS := --disable-doxygen-doc

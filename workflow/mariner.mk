@@ -1368,13 +1368,15 @@ define workflow_new_service
 	$(if $($(wnss)_IS_RUNNING),
 		$(eval $(call workflow_new_edge_sink,$(wnsw),stop-$(wnss),$(wnss)_done))
 		$(eval $(call workflow_new_edge_sink,$(wnsw),reset-$(wnss),$(wnss)_done))
-		$(eval $(call workflow_new_edge_sink,$(wnsw),$(wnsv)_delete,$(wnss)_done)))
+		$(if $(wnsv),$(eval $(call workflow_new_edge_sink,$(wnsw),$(wnsv)_delete,$(wnss)_done))))
 	$(if $(filter HasSetup,$(wnso)),
 		$(if $(wnsv),,$(error Error - '$(wnss)' with 'HasSetup' has no volume?))
 		$(eval $(wnss)_CLEANUP_VOLUME += $(wnsv))
 		$(eval $(call workflow_alias_node,$(wnsw),$(wnss)_setup,$($(wnsw)-$(wnss)_setup_TOUCHFILE)))
-		$(eval $(call workflow_new_edge,$(wnsw),$(wnss)_launched,$(wnss)_setup))
-		$(eval $(call workflow_new_edge_sink,$(wnsw),setup-$(wnss),$(wnss)_setup))
+		$(eval $(call workflow_stat_node,$(wnsw),$(wnss)_setup,$(wnss)_IS_SET_UP))
+		$(if $($(wnss)_IS_SET_UP),,
+			$(eval $(call workflow_new_edge,$(wnsw),$(wnss)_launched,$(wnss)_setup))
+			$(eval $(call workflow_new_edge_sink,$(wnsw),setup-$(wnss),$(wnss)_setup)))
 		$(eval RMTOUCHFILE := $Qrm -f $($(wnsw)-$(wnss)_setup_TOUCHFILE))
 		$(eval $(call mkout_rule,reset-$(wnss),$(wnsv)_delete,RMTOUCHFILE)))
 	$(if $(filter SignalExit,$(wnso)),
