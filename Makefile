@@ -1,21 +1,30 @@
 VERSION ?= 0.8
 
-# Boolean mode SAFEBOOT_WORKFLOW. If off (default), everything works as before,
-# move along, nothing to see here. I.e. the safeboot top-level Makefile
-# continues to do things much as it always has.
-#
-# If enabled, however, the content of this Makefile is almost entirely skipped,
-# and the Mariner+Docker-based "workflow" system is used instead. This is
-# unsurprisingly coded up in the ./workflow directory.
-#
-# Note, this must be modal, you can't have both. In the workflow model, the
-# submodules are handled within Docker containers.
-
-ifndef SAFEBOOT_WORKFLOW
-
 GIT_DIRTY := $(shell if git status -s >/dev/null ; then echo dirty ; else echo clean ; fi)
 GIT_HASH  := $(shell git rev-parse HEAD)
 TOP := $(shell pwd)
+Q := $(if $(strip $V),,@)
+
+# HCP == Host Cryptographic Provisioning, a Docker-based architecture that
+# implements (and can run) container images including;
+# - an enrollment service,
+# - an attestation service,
+# - a software TPM side-car,
+# - an attestation client.
+# For more information, consult README-hcp.md.
+#
+# HCP support is characterized by the presence of the ".enable_hcp" file. If
+# SAFEBOOT_HCP is set by the caller, this file will be created if it doesn't
+# already exist.
+
+ifeq (yes,$(shell stat $(TOP)/.enable_hcp > /dev/null 2>&1 && echo yes))
+SAFEBOOT_HCP := 1
+endif
+
+ifdef SAFEBOOT_HCP
+$(shell touch $(TOP)/.enable_hcp > /dev/null 2>&1)
+include hcp/Makefile
+endif
 
 BINS += bin/sbsign.safeboot
 BINS += bin/sign-efi-sig-list.safeboot
@@ -639,9 +648,12 @@ qemu-server: \
 	-kill `cat $(TPM_PID)`
 	@-$(RM) "$(TPM_PID)" "$(TPMSOCK)"
 
-else # defined(SAFEBOOT_WORKFLOW)
-
-# Pull in the Mariner workflow
-include workflow/GNUmakefile
-
-endif
+# General-purpose, lazy-initialization directory creation. Adding any path to
+# MDIRS ensures it gets this rule. That's why it's the the last declaration.
+# Note, we deliberately avoid "mkdir -p". It's a discipline measure, to ensure
+# things don't get sloppy over time. If make tries to create a child directory
+# before creating its parent, that's either because the child is in MDIRS but
+# the parent isn't, or we're missing a "|" dependency (of the child upon the
+# parent) to control the ordering.
+$(MDIRS):
+	$Qmkdir $@
