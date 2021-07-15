@@ -8,6 +8,9 @@ MDIRS += $(HCP_OUT)
 # require rebuilding other things.
 HCP_DEPS_COMMON := $(TOP)/Makefile $(HCP_SRC)/settings.mk $(HCP_SRC)/Makefile
 
+# Utility script to simplify the workflow
+ASSIST_CLEANUP=$(HCP_SRC)/assist_cleanup.sh
+
 # Configuration settings. (From wherever. A developer, a CI pipeline, some
 # package-building machinery, ...)
 include hcp/settings.mk
@@ -19,6 +22,14 @@ include hcp/settings.mk
 # - application container images, providing the different services, side-cars,
 #   and utilities that constitue HCP.
 include hcp/base/Makefile
+
+# A "builder" docker image is created that can host safeboot's building of
+# submodule code (rather it than building directly in the host environment,
+# which can be undesirable, unreliable, or impossible for many reasons).
+include hcp/builder/Makefile
+
+# Rules for building submodules (using "builder")
+include hcp/submodules/Makefile
 
 # ...
 
