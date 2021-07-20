@@ -39,6 +39,28 @@ include hcp/submodules/Makefile
 # Makefiles.
 include hcp/testnetwork.Makefile
 
+# Enrollment Service
+include hcp/enrollsvc/Makefile
+
+# This target allows you to shell into a running container (using docker exec).
+# If CID is set, it attempts to shell into the container it identifies,
+# otherwise a listing of running containers is given.
+
+enter:
+ifeq (,$(CID))
+	$Qecho "To shell into a running container, select the desired container by setting CID to"
+	$Qecho "the corresponding 'CONTAINER ID'. Note, you only need to specify enough of the"
+	$Qecho "initial hexadecimal characters to distinguish it from other containers."
+	$Qecho
+	$Qecho "Currently running containers in this project;"
+	$Qdocker container ls --filter=label=$(SAFEBOOT_HCP_DSPACE)all
+	$Qecho
+	$Qecho "E.g.:   make enter CID=f00d"
+	$Qecho
+else
+	$Qdocker exec -it $(CID) /bin/bash
+endif
+
 # We deliberately don't use any "rm -rf" here. If the rmdir alone doesn't
 # succeed, there is either a missing child cleanup hook, or one of the hooks
 # isn't complete.

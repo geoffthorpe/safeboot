@@ -1,7 +1,7 @@
 # All Docker objects created by this workflow will be prefixed with this string
 # in order to allow multiple independent environments to be built and tested on
 # the same host system.
-SAFEBOOT_HCP_DSPACE?=safeboot_
+SAFEBOOT_HCP_DSPACE?=safeboot_hcp_
 
 # Specify the underlying (debian-based) docker image to use as the system
 # environment for all operations.
