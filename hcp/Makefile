@@ -42,6 +42,9 @@ include hcp/testnetwork.Makefile
 # Enrollment Service
 include hcp/enrollsvc/Makefile
 
+# Attestation Service
+include hcp/attestsvc/Makefile
+
 # This target allows you to shell into a running container (using docker exec).
 # If CID is set, it attempts to shell into the container it identifies,
 # otherwise a listing of running containers is given.
