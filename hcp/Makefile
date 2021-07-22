@@ -31,7 +31,13 @@ include hcp/builder/Makefile
 # Rules for building submodules (using "builder")
 include hcp/submodules/Makefile
 
-# ...
+# TODO: the creating, destroy, starting, and stopping of instances (both
+# Enrollment and Attestation) is currently mingled into the Makefiles that
+# build the service containers. This will change. But for now, we want those
+# instances to connect to each other on a docker network, so provide the
+# definitions and support before including the Enrollment/Attestation Service
+# Makefiles.
+include hcp/testnetwork.Makefile
 
 # We deliberately don't use any "rm -rf" here. If the rmdir alone doesn't
 # succeed, there is either a missing child cleanup hook, or one of the hooks
