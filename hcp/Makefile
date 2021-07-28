@@ -48,6 +48,9 @@ include hcp/attestsvc/Makefile
 # Software TPM
 include hcp/swtpm/Makefile
 
+# Example client/host (containerized)
+include hcp/client/Makefile
+
 # This target allows you to shell into a running container (using docker exec).
 # If CID is set, it attempts to shell into the container it identifies,
 # otherwise a listing of running containers is given.
