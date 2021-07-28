@@ -51,6 +51,17 @@ include hcp/swtpm/Makefile
 # Example client/host (containerized)
 include hcp/client/Makefile
 
+# Rule to build everything (unmentioned stuff, like submodules, is dragged in
+# by dependency)
+hcp_buildall: hcp_enrollsvc hcp_attestsvc hcp_swtpm hcp_client
+
+# Rule to run everything
+hcp_runall: hcp_enrollsvc_run_start hcp_attestsvc_run_start hcp_swtpm_run_start hcp_client_run
+	$Qecho "Services started and client completed, tearing down"
+	$Q$(MAKE) hcp_stopall
+hcp_stopall: hcp_enrollsvc_run_stop hcp_attestsvc_run_stop hcp_swtpm_run_stop
+hcp_clearall: clean_hcp_enrollsvc_run clean_hcp_attestsvc_run clean_hcp_swtpm_run clean_hcp_client_run
+
 # This target allows you to shell into a running container (using docker exec).
 # If CID is set, it attempts to shell into the container it identifies,
 # otherwise a listing of running containers is given.
