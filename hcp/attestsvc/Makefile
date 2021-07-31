@@ -5,9 +5,8 @@ $(HCP_ATTESTSVC_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_ATTESTSVC_OUT)
 
 clean_hcp_attestsvc:
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT) > /dev/null 2>&1 && echo yes))
-	$Qrmdir $(HCP_ATTESTSVC_OUT)
-endif
+	$Qrm -rf $(HCP_ATTESTSVC_OUT)
+
 # Some summary notes about the attestment service, a.k.a. "attestsvc".
 #
 # This service consists of two containers (distinct images), "attestsvc-hcp"
@@ -93,21 +92,19 @@ $(HCP_ATTESTSVC_OUT)/common.built: $(HCP_ATTESTSVC_OUT)/common/tail_wait.pl
 $(HCP_ATTESTSVC_OUT)/common.built: $(HCP_BASE_TOUCHFILE)
 $(HCP_ATTESTSVC_OUT)/common.built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc-common \
+	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc=1 \
 	               -f $(HCP_ATTESTSVC_OUT)/common.Dockerfile \
-		       --build-arg HCP_USER=$(HCP_USER) \
+	               --build-arg HCP_USER=$(HCP_USER) \
 	               $(HCP_ATTESTSVC_OUT)/common/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_attestsvc-common:
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/common.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-common,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc-common
-	$Qrm $(HCP_ATTESTSVC_OUT)/common.built
-	$Qrm $(HCP_ATTESTSVC_OUT)/common.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/common > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_ATTESTSVC_OUT)/common.*
 	$Qrm -rf $(HCP_ATTESTSVC_OUT)/common
-endif
 
 ##################
 # attestsvc-hcp #
@@ -163,20 +160,18 @@ $(HCP_ATTESTSVC_OUT)/hcp.built: $(HCP_ATTESTSVC_HCP_PATHS)
 $(HCP_ATTESTSVC_OUT)/hcp.built: $(HCP_ATTESTSVC_OUT)/common.built
 $(HCP_ATTESTSVC_OUT)/hcp.built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp \
+	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc_hcp=1 \
 	               -f $(HCP_ATTESTSVC_OUT)/hcp.Dockerfile \
 	               $(HCP_ATTESTSVC_OUT)/hcp/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_attestsvc-hcp:
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/hcp.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp
-	$Qrm $(HCP_ATTESTSVC_OUT)/hcp.built
-	$Qrm $(HCP_ATTESTSVC_OUT)/hcp.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/hcp > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.*
 	$Qrm -rf $(HCP_ATTESTSVC_OUT)/hcp
-endif
 
 ##################
 # attestsvc-repl #
@@ -215,20 +210,18 @@ $(HCP_ATTESTSVC_OUT)/repl.built: $(HCP_ATTESTSVC_REPL_PATHS)
 $(HCP_ATTESTSVC_OUT)/repl.built: $(HCP_ATTESTSVC_OUT)/common.built
 $(HCP_ATTESTSVC_OUT)/repl.built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
+	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl=1 \
 	               -f $(HCP_ATTESTSVC_OUT)/repl.Dockerfile \
 	               $(HCP_ATTESTSVC_OUT)/repl/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_attestsvc-repl:
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/repl.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-repl,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc-repl
-	$Qrm $(HCP_ATTESTSVC_OUT)/repl.built
-	$Qrm $(HCP_ATTESTSVC_OUT)/repl.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/repl > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.*
 	$Qrm -rf $(HCP_ATTESTSVC_OUT)/repl
-endif
 
 ################
 # cleanup deps #
@@ -277,10 +270,10 @@ HCP_ATTESTSVC_HCP_HOSTNAME := attestsvc-hcp
 ifeq (yes,$(shell test -d $(HCP_ATTESTSVC_STATE) > /dev/null 2>&1 && echo yes))
 HCP_ATTESTSVC_INITIALIZED := 1
 endif
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/hcp.run.started > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp,$(HCP_EXISTING_CONTAINERS)))
 HCP_ATTESTSVC_HCP_RUNNING := 1
 endif
-ifeq (yes,$(shell stat $(HCP_ATTESTSVC_OUT)/repl.run.started > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-repl,$(HCP_EXISTING_CONTAINERS)))
 HCP_ATTESTSVC_REPL_RUNNING := 1
 endif
 ifneq (,$(HCP_ATTESTSVC_REPL_RUNNING)$(HCP_ATTESTSVC_HCP_RUNNING))
@@ -324,12 +317,9 @@ endif
 		--env REMOTE_REPO="$(HCP_ATTESTSVC_REMOTE_REPO)" \
 		--env UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_ATTESTSVC_REPL_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
 		--hostname $(HCP_ATTESTSVC_REPL_HOSTNAME) \
 		--network-alias $(HCP_ATTESTSVC_REPL_HOSTNAME) \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)attestsvc=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl_setup=1 \
 		$(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
 		/hcp/setup_repl.sh
@@ -359,7 +349,6 @@ ifdef HCP_ATTESTSVC_INITIALIZED
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/run.initialized
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.run.*
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.run.*
-	$Qecho "Done cleaning up 'attestsvc' state"
 endif
 
 ############################################
@@ -394,12 +383,9 @@ $(HCP_ATTESTSVC_OUT)/repl.run.started:
 		--env UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
 		-v $(HCP_ATTESTSVC_MSGBUS):$(HCP_ATTESTSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_ATTESTSVC_REPL_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
 		--hostname $(HCP_ATTESTSVC_REPL_HOSTNAME) \
 		--network-alias $(HCP_ATTESTSVC_REPL_HOSTNAME) \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)attestsvc=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
 		/hcp/run_repl.sh
@@ -460,13 +446,10 @@ $(HCP_ATTESTSVC_OUT)/hcp.run.started:
 		--env UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
 		-v $(HCP_ATTESTSVC_MSGBUS):$(HCP_ATTESTSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_ATTESTSVC_HCP_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp \
 		--hostname $(HCP_ATTESTSVC_HCP_HOSTNAME) \
 		--network-alias $(HCP_ATTESTSVC_HCP_HOSTNAME) \
 		-p 8080:8080 \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)attestsvc=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_hcp=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_hcp_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)attestsvc-hcp \
 		/hcp/run_hcp.sh

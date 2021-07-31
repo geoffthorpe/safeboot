@@ -52,20 +52,17 @@ $(HCP_SWTPM_OUT)/built: $(HCP_SWTPM_PATHS)
 $(HCP_SWTPM_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_SWTPM_OUT)/built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)swtpm \
+	               --label $(SAFEBOOT_HCP_DSPACE)swtpm=1 \
 	               -f $(HCP_SWTPM_OUT)/Dockerfile \
 	               $(HCP_SWTPM_OUT)/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_swtpm:
-ifeq (yes,$(shell stat $(HCP_SWTPM_OUT)/built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)swtpm,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)swtpm
-	$Qrm $(HCP_SWTPM_OUT)/built
-	$Qrm $(HCP_SWTPM_OUT)/Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_SWTPM_OUT) > /dev/null 2>&1 && echo yes))
 	$Qrm -rf $(HCP_SWTPM_OUT)
-endif
 
 # Cleanup ordering
 clean_hcp_base: clean_hcp_swtpm
@@ -97,7 +94,7 @@ HCP_SWTPM_HOSTNAME := swtpm-$(HCP_ENROLL_HOSTNAME)
 ifeq (yes,$(shell test -d $(HCP_SWTPM_STATE) > /dev/null 2>&1 && echo yes))
 HCP_SWTPM_INITIALIZED := 1
 endif
-ifeq (yes,$(shell stat $(HCP_SWTPM_OUT)/run.started > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)swtpm,$(HCP_EXISTING_CONTAINERS)))
 HCP_SWTPM_RUNNING := 1
 endif
 
@@ -136,11 +133,9 @@ endif
 		--env ENROLL_HOSTNAME="$(HCP_ENROLL_HOSTNAME)" \
 		--env ENROLL_URL="$(HCP_ENROLL_URL)" \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_SWTPM_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)swtpm \
 		--hostname $(HCP_SWTPM_HOSTNAME) \
 		--network-alias $(HCP_SWTPM_HOSTNAME) \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)swtpm=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)swtpm_setup=1 \
 		$(SAFEBOOT_HCP_DSPACE)swtpm \
 		/hcp/setup_swtpm.sh
@@ -169,7 +164,6 @@ ifdef HCP_SWTPM_INITIALIZED
 	$Qrm -rf $(HCP_SWTPM_MSGBUS)
 	$Qrm -f $(HCP_SWTPM_OUT)/run.initialized
 	$Qrm -f $(HCP_SWTPM_OUT)/run.*
-	$Qecho "Done cleaning up 'swtpm' state"
 endif
 
 ##############
@@ -194,12 +188,10 @@ $(HCP_SWTPM_OUT)/run.started:
 		--env ENROLL_URL="$(HCP_ENROLL_URL)" \
 		-v $(HCP_SWTPM_MSGBUS):$(HCP_SWTPM_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_SWTPM_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)swtpm \
 		--hostname $(HCP_SWTPM_HOSTNAME) \
 		--network-alias $(HCP_SWTPM_HOSTNAME) \
 		-p 9876:9876 \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)swtpm=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)swtpm_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)swtpm \
 		/hcp/run_swtpm.sh

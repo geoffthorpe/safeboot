@@ -148,42 +148,16 @@ SUBMODULES_INSTALLED_FILES := $(find $(HCP_SUBMODULES_INSTALL)/ -type f 2> /dev/
 endif
 
 clean_hcp_submodules:
-ifeq (yes,$(shell stat $(HCP_SUBMODULES_OUT) > /dev/null 2>&1 && echo yes))
-ifeq (yes,$(shell stat $(HCP_SUBMODULES_OUT)/install.tar.gz > /dev/null 2>&1 && echo yes))
-	$Qrm $(HCP_SUBMODULES_OUT)/install.tar.gz
-endif
-ifeq (yes,$(shell stat $(HCP_SUBMODULES_OUT)/swtpm.installed > /dev/null 2>&1 && echo yes))
-	$Q$(HCP_SUBMODULES_SWTPM_RUN) "cd /swtpm ; make uninstall"
-	$Qrm $(HCP_SUBMODULES_OUT)/swtpm.installed
-endif
-ifeq (yes,$(shell stat $(HCP_SUBMODULES_OUT)/libtpms.installed > /dev/null 2>&1 && echo yes))
-	$Q$(HCP_SUBMODULES_LIBTPMS_RUN) "cd /libtpms ; make uninstall"
-	$Qrm $(HCP_SUBMODULES_OUT)/libtpms.installed
-endif
+	$Qrm -f $(HCP_SUBMODULES_OUT)/install.tar.gz
 ifeq (yes,$(shell stat $(HCP_SUBMODULES_INSTALL) > /dev/null 2>&1 && echo yes))
-ifneq (,$(SUBMODULES_INSTALLED_FILES))
-ifneq (,$(FORCE))
-	$Qecho "Error, the submodules installation directory contains files"
-	$Qecho "so one of the \"uninstall\" rules is probably incomplete."
-	$Qecho "Set FORCE=1 if you want me to blast it away anyway."
-	$Q/bin/false
-endif
-endif
 	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
 		$(ASSIST_CLEANUP) volume $(HCP_SUBMODULES_INSTALL)
 endif
-ifeq (yes,$(shell stat $(HCP_SUBMODULES_OUT)/swtpm.* > /dev/null 2>&1 && echo yes))
 	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
 		$(ASSIST_CLEANUP) submodule $(TOP)/swtpm autogen.sh
-	$Qrm $(HCP_SUBMODULES_OUT)/swtpm.*
-endif
-ifeq (yes,$(shell stat $(HCP_SUBMODULES_OUT)/libtpms.* > /dev/null 2>&1 && echo yes))
 	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
 		$(ASSIST_CLEANUP) submodule $(TOP)/libtpms autogen.sh
-	$Qrm $(HCP_SUBMODULES_OUT)/libtpms.*
-endif
-	$Qrmdir $(HCP_SUBMODULES_OUT)
-endif
+	$Qrm -rf $(HCP_SUBMODULES_OUT)
 
 # Cleanup ordering
 clean_hcp_builder: clean_hcp_submodules

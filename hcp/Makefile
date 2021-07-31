@@ -15,6 +15,18 @@ ASSIST_CLEANUP=$(HCP_SRC)/assist_cleanup.sh
 # package-building machinery, ...)
 include hcp/settings.mk
 
+# To allow for more efficient "clean" recipes, capture a listing of
+# already-built and already-running images.
+HCP_EXISTING_IMAGES := $(shell docker image ls \
+			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
+			--format "{{.Repository}}" 2> /dev/null)
+HCP_EXISTING_CONTAINERS := $(shell docker container ls \
+			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
+			--format "{{.Names}}" 2> /dev/null)
+HCP_EXISTING_NETWORKS := $(shell docker network ls \
+			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
+			--format "{{.Name}}" 2> /dev/null)
+
 # A "base platform" Docker image is created, and used as a basis for deriving
 # two kinds of images;
 # - a "builder" container image, containing tool-chains and other extras to
@@ -56,10 +68,11 @@ include hcp/client/Makefile
 hcp_buildall: hcp_enrollsvc hcp_attestsvc hcp_swtpm hcp_client
 
 # Rule to run everything
-hcp_runall: hcp_enrollsvc_run_start hcp_attestsvc_run_start hcp_swtpm_run_start hcp_client_run
+hcp_startall: hcp_enrollsvc_run_start hcp_attestsvc_run_start hcp_swtpm_run_start hcp_client_run
+hcp_stopall: hcp_enrollsvc_run_stop hcp_attestsvc_run_stop hcp_swtpm_run_stop
+hcp_runall: hcp_startall
 	$Qecho "Services started and client completed, tearing down"
 	$Q$(MAKE) hcp_stopall
-hcp_stopall: hcp_enrollsvc_run_stop hcp_attestsvc_run_stop hcp_swtpm_run_stop
 hcp_clearall: clean_hcp_enrollsvc_run clean_hcp_attestsvc_run clean_hcp_swtpm_run clean_hcp_client_run
 
 # This target allows you to shell into a running container (using docker exec).
@@ -81,13 +94,8 @@ else
 	$Qdocker exec -it $(CID) /bin/bash
 endif
 
-# We deliberately don't use any "rm -rf" here. If the rmdir alone doesn't
-# succeed, there is either a missing child cleanup hook, or one of the hooks
-# isn't complete.
 clean_hcp:
-ifeq (yes,$(shell stat $(HCP_OUT) > /dev/null 2>&1 && echo yes))
-	$Qrmdir $(HCP_OUT)
-endif
+	$Qrm -rf $(HCP_OUT)
 
 # Make sure "hcp_clean" runs before "clean"
 clean: clean_hcp

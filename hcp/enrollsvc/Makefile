@@ -5,9 +5,7 @@ $(HCP_ENROLLSVC_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_ENROLLSVC_OUT)
 
 clean_hcp_enrollsvc:
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT) > /dev/null 2>&1 && echo yes))
-	$Qrmdir $(HCP_ENROLLSVC_OUT)
-endif
+	$Qrm -rf $(HCP_ENROLLSVC_OUT)
 
 # Some summary notes about the enrollment service, a.k.a. "enrollsvc".
 #
@@ -123,22 +121,20 @@ $(HCP_ENROLLSVC_OUT)/common.built: $(HCP_ENROLLSVC_COMMON_PATHS)
 $(HCP_ENROLLSVC_OUT)/common.built: $(HCP_BASE_TOUCHFILE)
 $(HCP_ENROLLSVC_OUT)/common.built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc-common \
+	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc=1 \
 	               -f $(HCP_ENROLLSVC_OUT)/common.Dockerfile \
-		       --build-arg DB_USER=$(DB_USER) \
-		       --build-arg FLASK_USER=$(FLASK_USER) \
+	               --build-arg DB_USER=$(DB_USER) \
+	               --build-arg FLASK_USER=$(FLASK_USER) \
 	               $(HCP_ENROLLSVC_OUT)/common/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_enrollsvc-common:
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/common.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-common,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc-common
-	$Qrm $(HCP_ENROLLSVC_OUT)/common.built
-	$Qrm $(HCP_ENROLLSVC_OUT)/common.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/common > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_ENROLLSVC_OUT)/common.*
 	$Qrm -rf $(HCP_ENROLLSVC_OUT)/common
-endif
 
 ##################
 # enrollsvc-repl #
@@ -169,20 +165,18 @@ $(HCP_ENROLLSVC_OUT)/repl.built: $(HCP_ENROLLSVC_OUT)/repl/run_repl.sh
 $(HCP_ENROLLSVC_OUT)/repl.built: $(HCP_ENROLLSVC_OUT)/common.built
 $(HCP_ENROLLSVC_OUT)/repl.built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl \
+	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc_repl=1 \
 	               -f $(HCP_ENROLLSVC_OUT)/repl.Dockerfile \
 	               $(HCP_ENROLLSVC_OUT)/repl/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_enrollsvc-repl:
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/repl.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl
-	$Qrm $(HCP_ENROLLSVC_OUT)/repl.built
-	$Qrm $(HCP_ENROLLSVC_OUT)/repl.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/repl > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.*
 	$Qrm -rf $(HCP_ENROLLSVC_OUT)/repl
-endif
 
 ##################
 # enrollsvc-mgmt #
@@ -246,22 +240,20 @@ $(HCP_ENROLLSVC_OUT)/mgmt.built: $(HCP_ENROLLSVC_MGMT_PATHS)
 $(HCP_ENROLLSVC_OUT)/mgmt.built: $(HCP_ENROLLSVC_OUT)/common.built
 $(HCP_ENROLLSVC_OUT)/mgmt.built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
+	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt=1 \
 	               -f $(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile \
-		       --build-arg DB_USER=$(DB_USER) \
-		       --build-arg FLASK_USER=$(FLASK_USER) \
+	               --build-arg DB_USER=$(DB_USER) \
+	               --build-arg FLASK_USER=$(FLASK_USER) \
 	               $(HCP_ENROLLSVC_OUT)/mgmt/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_enrollsvc-mgmt:
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/mgmt.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt
-	$Qrm $(HCP_ENROLLSVC_OUT)/mgmt.built
-	$Qrm $(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/mgmt > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.*
 	$Qrm -rf $(HCP_ENROLLSVC_OUT)/mgmt
-endif
 
 ################
 # cleanup deps #
@@ -310,10 +302,10 @@ HCP_ENROLLSVC_REPL_HOSTNAME := enrollsvc-repl
 ifeq (yes,$(shell test -d $(HCP_ENROLLSVC_STATE) > /dev/null 2>&1 && echo yes))
 HCP_ENROLLSVC_INITIALIZED := 1
 endif
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/repl.run.started > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl,$(HCP_EXISTING_CONTAINERS)))
 HCP_ENROLLSVC_REPL_RUNNING := 1
 endif
-ifeq (yes,$(shell stat $(HCP_ENROLLSVC_OUT)/mgmt.run.started > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt,$(HCP_EXISTING_CONTAINERS)))
 HCP_ENROLLSVC_MGMT_RUNNING := 1
 endif
 ifneq (,$(HCP_ENROLLSVC_MGMT_RUNNING)$(HCP_ENROLLSVC_REPL_RUNNING))
@@ -354,12 +346,9 @@ endif
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX) \
 		--env STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
 		--hostname $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
 		--network-alias $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt_setup=1 \
 		$(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
 		/hcp/setup_enrolldb.sh
@@ -389,7 +378,6 @@ ifdef HCP_ENROLLSVC_INITIALIZED
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/run.initialized
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.run.*
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.run.*
-	$Qecho "Done cleaning up 'enrollsvc' state"
 endif
 
 ############################################
@@ -422,13 +410,10 @@ $(HCP_ENROLLSVC_OUT)/mgmt.run.started:
 		--env STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		-v $(HCP_ENROLLSVC_MSGBUS):$(HCP_ENROLLSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
 		--hostname $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
 		--network-alias $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
 		-p 5000:5000 \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
 		/hcp/run_mgmt.sh
@@ -487,13 +472,10 @@ $(HCP_ENROLLSVC_OUT)/repl.run.started:
 		--env STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		-v $(HCP_ENROLLSVC_MSGBUS):$(HCP_ENROLLSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_ENROLLSVC_REPL_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl \
 		--hostname $(HCP_ENROLLSVC_REPL_HOSTNAME) \
 		--network-alias $(HCP_ENROLLSVC_REPL_HOSTNAME) \
 		-p 9418:9418 \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_repl=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_repl_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)enrollsvc-repl \
 		/hcp/run_repl.sh

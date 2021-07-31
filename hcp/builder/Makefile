@@ -18,18 +18,15 @@ $(HCP_BUILDER_OUT)/built: $(HCP_BUILDER_OUT)/Dockerfile
 $(HCP_BUILDER_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_BUILDER_OUT)/built:
 	$Qcat $(HCP_BUILDER_OUT)/Dockerfile | \
-		docker build -t $(SAFEBOOT_HCP_DSPACE)builder -
+		docker build -t $(SAFEBOOT_HCP_DSPACE)builder \
+			--label $(SAFEBOOT_HCP_DSPACE)builder=1 -
 	$Qtouch $@
 
 clean_hcp_builder:
-ifeq (yes,$(shell stat $(HCP_BUILDER_OUT) > /dev/null 2>&1 && echo yes))
-ifeq (yes,$(shell stat $(HCP_BUILDER_OUT)/built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)builder,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)builder
-	$Qrm $(HCP_BUILDER_OUT)/built
 endif
-	$Qrm -f $(HCP_BUILDER_OUT)/Dockerfile
-	$Qrmdir $(HCP_BUILDER_OUT)
-endif
+	$Qrm -rf $(HCP_BUILDER_OUT)
 
 # Cleanup ordering
 clean_hcp_base: clean_hcp_builder

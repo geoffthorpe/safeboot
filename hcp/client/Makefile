@@ -47,22 +47,17 @@ $(HCP_CLIENT_OUT)/built: $(HCP_CLIENT_PATHS)
 $(HCP_CLIENT_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_CLIENT_OUT)/built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)client \
+	               --label $(SAFEBOOT_HCP_DPSACE)client=1 \
 	               -f $(HCP_CLIENT_OUT)/Dockerfile \
 	               $(HCP_CLIENT_OUT)/
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_client:
-ifeq (yes,$(shell stat $(HCP_CLIENT_OUT)/built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)client,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)client
-	$Qrm $(HCP_CLIENT_OUT)/built
 endif
-ifeq (yes,$(shell stat $(HCP_CLIENT_OUT) > /dev/null 2>&1 && echo yes))
-	$Qrm -f $(HCP_CLIENT_OUT)/Dockerfile
-	$Qrm -f $(HCP_CLIENT_PATHS)
-	$Qrm -rf $(HCP_CLIENT_OUT)/safeboot-*
-	$Qrmdir $(HCP_CLIENT_OUT)
-endif
+	$Qrm -rf $(HCP_CLIENT_OUT)
 
 # Cleanup ordering
 clean_hcp_base: clean_hcp_client
@@ -123,11 +118,10 @@ $(HCP_CLIENT_OUT)/run.done:
 		--env MSGBUS_PREFIX="$(HCP_CLIENT_MSGBUS_PREFIX)" \
 		-v $(HCP_CLIENT_MSGBUS):$(HCP_CLIENT_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
-		--name $(HCP_CLIENT_HOSTNAME) \
+		--name $(SAFEBOOT_HCP_DSPACE)client \
 		--hostname $(HCP_CLIENT_HOSTNAME) \
 		--network-alias $(HCP_CLIENT_HOSTNAME) \
-		--label $(SAFEBOOT_HCP_DSPACE)all=1 \
-		--label $(SAFEBOOT_HCP_DSPACE)client=1 \
+		--label $(SAFEBOOT_HCP_DSPACE)client_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)client \
 		/hcp/run_client.sh
 	$Qecho "Done starting 'client'"
@@ -145,11 +139,8 @@ hcp_client_run: $(HCP_CLIENT_OUT)/run.done
 
 # "rm -rf client" to remove left-overs (interface and recipe)
 clean_hcp_client_run:
-ifeq (yes,$(shell stat $(HCP_CLIENT_OUT)/run.done > /dev/null 2>&1 && echo yes))
 	$Qrm -rf $(HCP_CLIENT_MSGBUS)
 	$Qrm -f $(HCP_CLIENT_OUT)/run.done
-	$Qecho "Done cleaning up 'client' state"
-endif
 
 ################
 # cleanup deps #

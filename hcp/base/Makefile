@@ -53,7 +53,8 @@ $(HCP_BASE_OUT)/0import.Dockerfile:
 $(HCP_BASE_OUT)/0import.built: $(HCP_BASE_OUT)/0import.Dockerfile
 $(HCP_BASE_OUT)/0import.built:
 	$Qcat $(HCP_BASE_OUT)/0import.Dockerfile | \
-		docker build -t $(SAFEBOOT_HCP_DSPACE)base_0import -
+		docker build -t $(SAFEBOOT_HCP_DSPACE)base_0import \
+			--label $(SAFEBOOT_HCP_DSPACE)all=1 -
 	$Qtouch $@
 
 # LAYER: 1apt-source
@@ -183,37 +184,30 @@ $(HCP_BASE_OUT)/4platform.built:
 		docker build -t $(SAFEBOOT_HCP_DSPACE)base_4platform -
 	$Qtouch $@
 
-ifeq (yes,$(shell stat $(HCP_BASE_OUT) > /dev/null 2>&1 && echo yes))
 clean_hcp_base:
-ifeq (yes,$(shell stat $(HCP_BASE_OUT)/4platform.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_4platform,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_4platform
-	$Qrm $(HCP_BASE_OUT)/4platform.built
-	$Qrm $(HCP_BASE_OUT)/4platform.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_BASE_OUT)/3add-cacerts.built > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_BASE_OUT)/4platform.*
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)3add-cacerts,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts
-	$Qrm $(HCP_BASE_OUT)/3add-cacerts.built
-	$Qrm $(HCP_BASE_OUT)/3add-cacerts.Dockerfile
+endif
+	$Qrm -f $(HCP_BASE_OUT)/3add-cacerts.*
 	$Qrm -rf $(HCP_BASE_3CA_OUT)
-endif
-ifeq (yes,$(shell stat $(HCP_BASE_OUT)/2apt-usable.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_2apt-usable,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_2apt-usable
-	$Qrm $(HCP_BASE_OUT)/2apt-usable.built
-	$Qrm $(HCP_BASE_OUT)/2apt-usable.Dockerfile
+endif
+	$Qrm -f $(HCP_BASE_OUT)/2apt-usable.*
 	$Qrm -rf $(HCP_BASE_2APT_OUT)
-endif
-ifeq (yes,$(shell stat $(HCP_BASE_OUT)/1apt-source.built > /dev/null 2>&1 && echo yes))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_1apt-source,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_1apt-source
-	$Qrm $(HCP_BASE_OUT)/1apt-source.built
-	$Qrm $(HCP_BASE_OUT)/1apt-source.Dockerfile
 endif
-ifeq (yes,$(shell stat $(HCP_BASE_OUT)/0import.built > /dev/null 2>&1 && echo yes))
+	$Qrm -f $(HCP_BASE_OUT)/1apt-source.*
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_0import,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_0import
-	$Qrm $(HCP_BASE_OUT)/0import.Dockerfile
-	$Qrm $(HCP_BASE_OUT)/0import.built
 endif
-	$Qrmdir $(HCP_BASE_OUT)
-endif
+	$Qrm -f $(HCP_BASE_OUT)/0import.*
+	$Qrm -rf $(HCP_BASE_OUT)
 
 # Cleanup ordering
 clean_hcp: clean_hcp_base
