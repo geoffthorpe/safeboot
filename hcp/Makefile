@@ -8,12 +8,16 @@ MDIRS += $(HCP_OUT)
 # require rebuilding other things.
 HCP_DEPS_COMMON := $(TOP)/Makefile $(HCP_SRC)/settings.mk $(HCP_SRC)/Makefile
 
-# Utility script to simplify the workflow
-ASSIST_CLEANUP=$(HCP_SRC)/assist_cleanup.sh
-
 # Configuration settings. (From wherever. A developer, a CI pipeline, some
 # package-building machinery, ...)
 include hcp/settings.mk
+
+# Utility script to simplify the workflow (depends on hcp/settings.mk)
+ifeq (,$(SAFEBOOT_HCP_SUBMODULE_RESET_DISABLE))
+ASSIST_CLEANUP=$(HCP_SRC)/assist_cleanup.sh
+else
+ASSIST_CLEANUP=DISABLE_SUBMODULE_RESET=1 $(HCP_SRC)/assist_cleanup.sh
+endif
 
 # To allow for more efficient "clean" recipes, capture a listing of
 # already-built and already-running images.

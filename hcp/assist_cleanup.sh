@@ -78,7 +78,9 @@ function cleanup_submodule {
 		echo "submodule $2 getting cleaned up"
 		echo "  running: docker run -i --rm -v $1:/foo $UTIL_IMAGE /bin/bash -O dotglob -c \"chown -R --reference=/foo/$3 /foo/*\""
 		docker run -i --rm -v $1:/foo $UTIL_IMAGE /bin/bash -O dotglob -c "chown -R --reference=/foo/$3 /foo/*"
-		(cd $1 && git reset --hard && git clean -f -d -x)
+		if [[ -z "$DISABLE_SUBMODULE_RESET" ]]; then
+			(cd $1 && git reset --hard && git clean -f -d -x)
+		fi
 	else
 		echo "submodule $2 not getting cleaned up"
 	fi

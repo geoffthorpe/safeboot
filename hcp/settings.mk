@@ -49,3 +49,16 @@ SAFEBOOT_HCP_BASE?=debian:bullseye-slim
 # allows make to spawn arbitrarily many processes at once, whereas "-j 4" caps
 # the parallelism to 4.
 SAFEBOOT_HCP_BUILDER_MAKE_PARALLEL := -j 16
+
+# The submodule-building support assumes that it "owns" the submodules. It not
+# only autoconfs, configures, compiles, and installs the submodules, it will
+# "clean" the submodule back to pristine state. This includes chowning any
+# files that have weird ownership (viewed from the host-side) due to container
+# namespace oddities, running "git clean -f -d -x" (to get rid of all
+# non-version controlled files), and running "git reset --hard" (restoring
+# missing files and resetting existing files to their versioned state). Great
+# for CI and other automation, but not great if you are _hacking on the
+# submodule code and don't want all your work vanishing in smoke_!! In the
+# latter case, uncomment the following setting to bypass the git-clean and
+# git-reset steps.
+#SAFEBOOT_HCP_SUBMODULE_RESET_DISABLE := 1
