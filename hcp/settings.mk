@@ -27,6 +27,20 @@ SAFEBOOT_HCP_BASE?=debian:bullseye-slim
 #SAFEBOOT_HCP_3ADD_CACERTS_ENABLE:=1
 #SAFEBOOT_HCP_3ADD_CACERTS_PATH:=/opt/my-company-ca-certificates
 
+# If defined, the "4platform" layer will add a "RUN apt-get install -y [...]"
+# line to its Dockerfile using these arguments. This provides for "make
+# yourself at home" stuff to be added to all the subsequent HCP-produced
+# containers.
+SAFEBOOT_HCP_4PLATFORM_XTRA ?= vim
+
+# If defined, the "4platform" layer in hcp/base will not install "tpm2-tools"
+# from Debian package sources, instead the tpm2-tss and tpm2-tools submodules
+# will be configured, compiled, and installed by the hcp/submodules layer.
+SAFEBOOT_HCP_4PLATFORM_NO_TPM2:=1
+
+# As per above. DO NOT MODIFY this unless you know what you're doing.
+SAFEBOOT_HCP_SUBMODULES_TPM2:=$(SAFEBOOT_HCP_4PLATFORM_NO_TPM2)
+
 # If defined, the "2apt-usable" layer in hcp/base will tweak the apt
 # configuration to use the given URL as a (caching) proxy for downloading deb
 # packages. It will also set the "Queue-Mode" to "access", which essentially

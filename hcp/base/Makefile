@@ -162,16 +162,29 @@ endif # SAFEBOOT_HCP_3ADD_CACERTS_ENABLE
 
 # LAYER: 4platform
 
+ifdef SAFEBOOT_HCP_3ADD_CACERTS_ENABLE
+HCP_BASE_4PLATFORM_ANCESTOR := base_3add-cacerts
+else
+HCP_BASE_4PLATFORM_ANCESTOR := base_2apt-usable
+endif
+ifdef SAFEBOOT_HCP_4PLATFORM_NO_TPM2
+HCP_BASE_4PLATFORM_TPM2_TOOLS :=
+else
+HCP_BASE_4PLATFORM_TPM2_TOOLS := RUN apt-get install -y tpm2-tools
+endif
+ifdef SAFEBOOT_HCP_4PLATFORM_XTRA
+HCP_BASE_4PLATFORM_XTRA := RUN apt-get install -y $(SAFEBOOT_HCP_4PLATFORM_XTRA)
+else
+HCP_BASE_4PLATFORM_XTRA :=
+endif
 $(HCP_BASE_OUT)/4platform.Dockerfile: | $(HCP_BASE_OUT)
 $(HCP_BASE_OUT)/4platform.Dockerfile: $(HCP_BASE_DEPS_COMMON)
 $(HCP_BASE_OUT)/4platform.Dockerfile: $(HCP_BASE_SRC)/4platform.Dockerfile
 $(HCP_BASE_OUT)/4platform.Dockerfile:
-ifdef SAFEBOOT_HCP_3ADD_CACERTS_ENABLE
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts" > $@
-else
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)base_2apt-usable" > $@
-endif
-	$Qcat $(HCP_BASE_SRC)/4platform.Dockerfile >> $@
+	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_4PLATFORM_ANCESTOR)" > $@
+	$Qcat $(HCP_BASE_SRC)/4platform.Dockerfile | \
+	sed -e "s/HCP_BASE_4PLATFORM_TPM2_TOOLS/$(HCP_BASE_4PLATFORM_TPM2_TOOLS)/" | \
+	sed -e "s/HCP_BASE_4PLATFORM_XTRA/$(HCP_BASE_4PLATFORM_XTRA)/" >> $@
 
 ifdef SAFEBOOT_HCP_3ADD_CACERTS_ENABLE
 $(HCP_BASE_OUT)/4platform.built: $(HCP_BASE_OUT)/3add-cacerts.built
