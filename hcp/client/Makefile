@@ -7,49 +7,57 @@ MDIRS += $(HCP_CLIENT_OUT)
 # wrapper target to build the "client" image
 hcp_client: $(HCP_CLIENT_OUT)/built
 
-$(HCP_CLIENT_OUT)/run_client.sh: | $(HCP_CLIENT_OUT)
-$(HCP_CLIENT_OUT)/run_client.sh: $(HCP_CLIENT_SRC)/run_client.sh
-$(HCP_CLIENT_OUT)/run_client.sh:
+# Include the submodule bundle
+HCP_CLIENT_PATHS += $(HCP_CLIENT_OUT)/install.tar.gz
+$(HCP_CLIENT_OUT)/install.tar.gz: | $(HCP_CLIENT_OUT)
+$(HCP_CLIENT_OUT)/install.tar.gz: $(HCP_SUBMODULES_OUT)/install.tar.gz
+$(HCP_CLIENT_OUT)/install.tar.gz:
 	$Qcp $< $@
 
-HCP_CLIENT_PATHS := $(HCP_CLIENT_OUT)/run_client.sh
+# And the safeboot bundle
+HCP_CLIENT_PATHS += $(HCP_CLIENT_OUT)/safeboot.tar.gz
+$(HCP_CLIENT_OUT)/safeboot.tar.gz: | $(HCP_CLIENT_OUT)
+$(HCP_CLIENT_OUT)/safeboot.tar.gz: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz
+$(HCP_CLIENT_OUT)/safeboot.tar.gz:
+	$Qcp $< $@
 
-# Inject the "SAFEBOOT_SBIN" files. Same comments as for enrollsvc-hcp.
-MDIRS += $(HCP_CLIENT_OUT)/safeboot-sbin
-MDIRS += $(HCP_CLIENT_OUT)/safeboot-xtra
-$(HCP_CLIENT_OUT)/safeboot-sbin: | $(HCP_CLIENT_OUT)
-$(HCP_CLIENT_OUT)/safeboot-xtra: | $(HCP_CLIENT_OUT)
+# And the hcp-{common,client} bundles
+HCP_CLIENT_PATHS += $(HCP_CLIENT_OUT)/hcp-common.tar.gz
+HCP_CLIENT_PATHS += $(HCP_CLIENT_OUT)/hcp-client.tar.gz
+$(HCP_CLIENT_OUT)/hcp-common.tar.gz: | $(HCP_CLIENT_OUT)
+$(HCP_CLIENT_OUT)/hcp-common.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz
+$(HCP_CLIENT_OUT)/hcp-common.tar.gz:
+	$Qcp $< $@
+$(HCP_CLIENT_OUT)/hcp-client.tar.gz: | $(HCP_CLIENT_OUT)
+$(HCP_CLIENT_OUT)/hcp-client.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz
+$(HCP_CLIENT_OUT)/hcp-client.tar.gz:
+	$Qcp $< $@
 
-HCP_CLIENT_SAFEBOOT_SBIN := $(shell cd $(TOP)/sbin && ls -1)
-HCP_CLIENT_SAFEBOOT_XTRA := functions.sh safeboot.conf
-define enrollsvc_safeboot_file
-$(HCP_CLIENT_OUT)/safeboot-$2/$1: | $(HCP_CLIENT_OUT)/safeboot-$2
-$(HCP_CLIENT_OUT)/safeboot-$2/$1: $(TOP)/$3/$1
-$(HCP_CLIENT_OUT)/safeboot-$2/$1:
-	$Qcp $$< $$@
-$(eval HCP_CLIENT_PATHS += $(HCP_CLIENT_OUT)/safeboot-$2/$1)
-endef
-$(foreach i,$(HCP_CLIENT_SAFEBOOT_SBIN),$(eval $(call enrollsvc_safeboot_file,$i,sbin,sbin)))
-$(foreach i,$(HCP_CLIENT_SAFEBOOT_XTRA),$(eval $(call enrollsvc_safeboot_file,$i,xtra,.)))
-
-# Dockerfile-generation. Same note as for repl.Dockerfile above.
+# Dockerfile-generation.
 $(HCP_CLIENT_OUT)/Dockerfile: | $(HCP_CLIENT_OUT)
 $(HCP_CLIENT_OUT)/Dockerfile: $(HCP_CLIENT_SRC)/Makefile
 $(HCP_CLIENT_OUT)/Dockerfile: $(HCP_CLIENT_SRC)/Dockerfile
+$(HCP_CLIENT_OUT)/Dockerfile: $(HCP_SUBMODULES_OUT)/install.tar.gz.inject
+$(HCP_CLIENT_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject
+$(HCP_CLIENT_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject
+$(HCP_CLIENT_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject
 $(HCP_CLIENT_OUT)/Dockerfile:
 	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
 	$Qcat $(HCP_CLIENT_SRC)/Dockerfile >> $@
+	$Qcat $(HCP_SUBMODULES_OUT)/install.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject >> $@
 
 # "docker build" to create the container image (recipe only)
 $(HCP_CLIENT_OUT)/built: $(HCP_CLIENT_OUT)/Dockerfile
-$(HCP_CLIENT_OUT)/built: $(HCP_CLIENT_OUT)/run_client.sh
 $(HCP_CLIENT_OUT)/built: $(HCP_CLIENT_PATHS)
 $(HCP_CLIENT_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_CLIENT_OUT)/built:
 	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)client \
-	               --label $(SAFEBOOT_HCP_DPSACE)client=1 \
+	               --label $(SAFEBOOT_HCP_DSPACE)client=1 \
 	               -f $(HCP_CLIENT_OUT)/Dockerfile \
-	               $(HCP_CLIENT_OUT)/
+	               $(HCP_CLIENT_OUT)
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
@@ -72,21 +80,20 @@ clean_hcp_base: clean_hcp_client
 # synchronously and returns when done. So this makes the Makefile "template"
 # deviate a little from the others.
 
-# Consult hcp/swtpm/Makefile's run-time section for more info about some of
+# Consult hcp/swtpmsvc/Makefile's run-time section for more info about some of
 # these settings.
 
 HCP_CLIENT_MSGBUS := $(HCP_CLIENT_OUT)/msgbus
 HCP_CLIENT_MSGBUS_PREFIX := /msgbus
 
 HCP_ATTEST_URL := http://$(HCP_ATTESTSVC_HCP_HOSTNAME):8080
-HCP_CLIENT_HOSTNAME := $(HCP_ENROLL_HOSTNAME)
-HCP_CLIENT_TCTI := swtpm:host=$(HCP_SWTPM_HOSTNAME),port=9876
+HCP_CLIENT_TCTI := swtpm:host=$(HCP_SWTPMSVC_HOSTNAME),port=9876
 
 # Choice - is the "run_client" thing a target or a verb? Once a target is met,
-# it's met, if you "make" it again there will literally be "Nothing to be
-# done". Whereas a verb is something you want to happen whenever you ask for
-# it, synchronously, every time. This defaults to a verb if the caller doesn't
-# specify otherwise.
+# it's met, if you "make" it again there will literally be "Nothing to be done"
+# (unless one of the dependencies has been updated in the meanwhile). OTOH a
+# verb is something you want to happen whenever you ask for it, synchronously,
+# every time. This defaults to a verb if the caller doesn't specify otherwise.
 HCP_CLIENT_MODE ?= verb
 ifneq (verb,$(HCP_CLIENT_MODE))
 ifneq (target,$(HCP_CLIENT_MODE))
@@ -105,15 +112,14 @@ else
 $(HCP_CLIENT_OUT)/run.done: $(HCP_CLIENT_OUT)/built
 endif
 $(HCP_CLIENT_OUT)/run.done: | $(HCP_OUT)/testnetwork.created
-$(HCP_CLIENT_OUT)/run.done: | $(HCP_SWTPM_OUT)/run.started
+$(HCP_CLIENT_OUT)/run.done: | $(HCP_SWTPMSVC_OUT)/run.started
 $(HCP_CLIENT_OUT)/run.done: | $(HCP_ATTESTSVC_OUT)/hcp.run.started
 $(HCP_CLIENT_OUT)/run.done:
 	$Qmkdir -p $(HCP_CLIENT_MSGBUS)
 	$Qrm -f $(HCP_CLIENT_MSGBUS)/client*
 	$Qdocker run -i --rm \
 		--env TPM2TOOLS_TCTI="$(HCP_CLIENT_TCTI)" \
-		--env ENROLL_HOSTNAME="$(HCP_ENROLL_HOSTNAME)" \
-		--env ATTEST_URL="$(HCP_ATTEST_URL)" \
+		--env CLIENT_ATTEST_URL="$(HCP_ATTEST_URL)" \
 		--env MSGBUS="$(HCP_CLIENT_MSGBUS)" \
 		--env MSGBUS_PREFIX="$(HCP_CLIENT_MSGBUS_PREFIX)" \
 		-v $(HCP_CLIENT_MSGBUS):$(HCP_CLIENT_MSGBUS_PREFIX) \
@@ -123,7 +129,7 @@ $(HCP_CLIENT_OUT)/run.done:
 		--network-alias $(HCP_CLIENT_HOSTNAME) \
 		--label $(SAFEBOOT_HCP_DSPACE)client_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)client \
-		/hcp/run_client.sh
+		/hcp/client/run_client.sh
 	$Qecho "Done starting 'client'"
 	$Qecho "Output at; $(HCP_CLIENT_MSGBUS)/client"
 ifeq (target,$(HCP_CLIENT_MODE))
@@ -139,7 +145,8 @@ hcp_client_run: $(HCP_CLIENT_OUT)/run.done
 
 # "rm -rf client" to remove left-overs (interface and recipe)
 clean_hcp_client_run:
-	$Qrm -rf $(HCP_CLIENT_MSGBUS)
+	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
+		$(ASSIST_CLEANUP) volume $(HCP_CLIENT_MSGBUS)
 	$Qrm -f $(HCP_CLIENT_OUT)/run.done
 
 ################

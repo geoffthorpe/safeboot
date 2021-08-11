@@ -2,12 +2,12 @@
 # with the HCP Enrollment Service. The latter exposes an API end-point
 # (typically at <URL-base>/v1/add) for us to hit, and takes 2 parameters that
 # are both specified via environment variables;
-# - hostname: specified by the "ENROLL_HOSTNAME" environment variable.
+# - hostname: specified by the "SWTPMSVC_ENROLL_HOSTNAME" environment variable.
 # - ekpub: the public part of the TPM's "Endorsement Key", either in its raw
 #   TPM binary format or PEM-encoded. The "TPM_EKPUB" environment variable
 #   provides the path to this file.
-# The URL for this API must also be provided by the "ENROLL_URL" environment
-# variable.
+# The URL for this API must also be provided by the "SWTPMSVC_ENROLL_URL"
+# environment variable.
 #
 # In the safeboot.dev implementation, part of the HCP (Host Cryptographic
 # Provisioning) architecture, this script gets used when initializing a
@@ -24,10 +24,10 @@ import sys
 
 form_data = {
     'ekpub': ('ek.pub', open(os.environ.get('TPM_EKPUB'), 'rb')),
-    'hostname': (None, os.environ.get('ENROLL_HOSTNAME'))
+    'hostname': (None, os.environ.get('SWTPMSVC_ENROLL_HOSTNAME'))
 }
 
-response = requests.post(os.environ.get('ENROLL_URL'), files=form_data)
+response = requests.post(os.environ.get('SWTPMSVC_ENROLL_URL'), files=form_data)
 
 jr = json.loads(response.content)
 

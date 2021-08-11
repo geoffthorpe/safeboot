@@ -1,16 +1,8 @@
 #!/bin/bash
 
-. /hcp/common.sh
+. /hcp/enrollsvc/common.sh
 
 expect_db_user
-
-# We use attest-enroll from safeboot's bin directory, which does
-# asset-generation and seals assets to the enrolled TPM public key. Nothing
-# else in the enrollment service is supposed to (need to) know anything about
-# safeboot, most of the safeboot stuff is in the attestation service (and
-# client). So we add the safeboot sbin path here locally, rather than defining
-# it in common.sh.
-export PATH=$PATH:/safeboot/sbin
 
 echo "Starting $0"
 echo "  - Param1=$1 (path to ek.pub/ek.pem)"
@@ -42,7 +34,7 @@ cd /safeboot
 
 export EPHEMERAL_ENROLL=`mktemp -d -u`
 
-attest-enroll -V CHECKOUT=/hcp/cb_checkout.sh -V COMMIT=/hcp/cb_commit.sh -I $1 $2 ||
+attest-enroll -V CHECKOUT=/hcp/enrollsvc/cb_checkout.sh -V COMMIT=/hcp/enrollsvc/cb_commit.sh -I $1 $2 ||
 	(echo "Error, 'attest-enroll' failed" && exit 1) || exit 1
 
 # When running from a console, it can be handy to see what was generated

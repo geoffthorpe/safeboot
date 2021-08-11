@@ -11,7 +11,7 @@
 exec 1> /msgbus/enrollsvc-mgmt
 exec 2>&1
 
-. /hcp/common.sh
+. /hcp/enrollsvc/common.sh
 
 expect_root
 
@@ -25,7 +25,7 @@ echo "Running 'enrollsvc-mgmt' service"
 # This could probably be fixed by dy doing a tail_wait on our own output to
 # pick up the telltale signs from the child process that the service is
 # genuinely listening and ready.
-(drop_privs_flask /hcp/flask_wrapper.sh) &
+(drop_privs_flask /hcp/enrollsvc/flask_wrapper.sh) &
 THEPID=$!
 disown %
 echo "Backgrounded (pid=$THEPID)"

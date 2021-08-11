@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /hcp
+cd /hcp/enrollsvc
 
 . common.sh
 

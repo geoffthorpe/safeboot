@@ -4,14 +4,11 @@ HCP_ATTESTSVC_OUT := $(HCP_OUT)/attestsvc
 $(HCP_ATTESTSVC_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_ATTESTSVC_OUT)
 
-clean_hcp_attestsvc:
-	$Qrm -rf $(HCP_ATTESTSVC_OUT)
-
 # Some summary notes about the attestment service, a.k.a. "attestsvc".
 #
-# This service consists of two containers (distinct images), "attestsvc-hcp"
-# and "attestsvc-repl", which perform complementary functions but operate on
-# common state (a directory bind-mounted into both containers);
+# This service consists of two sub-services; "hcp" and "repl", which perform
+# complementary functions but operate on common state (a directory bind-mounted
+# into both containers);
 #  * The common state consists of;
 #    - clones of the enrollment database, that are updated from the Enrollment
 #      Service (enrollsvc-repl) and rotated by the 'attestsvc-repl' container.
@@ -21,12 +18,12 @@ clean_hcp_attestsvc:
 #        be picked up by the services. Currently, this is limited to "stop"
 #        functionality, which writes "die" to a file the service is
 #        "tail_wait"ing, triggering it to exit.
-#  * "attestsvc-hcp" provides the attestation endpoint for HCP clients (hosts).
+#  * "attestsvc::hcp" provides the attestation endpoint for HCP clients (hosts).
 #    - The common state is mounted read-only!
 #    - After setting up the environment and dropping privileges, control is
 #      passed entirely to safeboot/attest-server (outside this "hcp" source
 #      tree) to accept connections and respond to attestation requests.
-#  * "attestsvc-repl" handles replication and updating of (local) common state.
+#  * "attestsvc::repl" handles replication and updating of (local) common state.
 #    - The common state is mounted read-write.
 #    - This service provides fault-tolerance and reliability;
 #      - Inability to reach the Enrollment Service is logged, and results in
@@ -43,14 +40,9 @@ clean_hcp_attestsvc:
 #      - This ensures that processing of an attestation request (from an HCP
 #        client) occurs in a clone that is guaranteed not to change for at
 #        least that timeout period.
-#
-# For reasons outlined in common.Dockerfile, we build an 'attestsvc-common'
-# image to be a common ancestor of attestsvc-repl and attestsvc-hcp.
 
 # wrapper targets to build the "attestsvc" images
-hcp_attestsvc-repl: $(HCP_ATTESTSVC_OUT)/repl.built
-hcp_attestsvc-hcp: $(HCP_ATTESTSVC_OUT)/hcp.built
-hcp_attestsvc: hcp_attestsvc-repl hcp_attestsvc-hcp
+hcp_attestsvc: $(HCP_ATTESTSVC_OUT)/built
 
 # This Makefile for attestsvc is modeled heavily on the Makefile for enrollsvc.
 # As such, I have removed comments in many places, not because they're not
@@ -61,187 +53,84 @@ hcp_attestsvc: hcp_attestsvc-repl hcp_attestsvc-hcp
 HCP_USER := lowlyuser
 
 
-####################
-# attestsvc-common #
-####################
+#############
+# attestsvc #
+#############
 
-MDIRS += $(HCP_ATTESTSVC_OUT)/common
-$(HCP_ATTESTSVC_OUT)/common: | $(HCP_ATTESTSVC_OUT)
-
-$(HCP_ATTESTSVC_OUT)/common/common.sh: | $(HCP_ATTESTSVC_OUT)/common
-$(HCP_ATTESTSVC_OUT)/common/common.sh: $(HCP_ATTESTSVC_SRC)/common.sh
-$(HCP_ATTESTSVC_OUT)/common/common.sh:
+# Include the submodule bundle
+HCP_ATTESTSVC_PATHS += $(HCP_ATTESTSVC_OUT)/install.tar.gz
+$(HCP_ATTESTSVC_OUT)/install.tar.gz: | $(HCP_ATTESTSVC_OUT)
+$(HCP_ATTESTSVC_OUT)/install.tar.gz: $(HCP_SUBMODULES_OUT)/install.tar.gz
+$(HCP_ATTESTSVC_OUT)/install.tar.gz:
 	$Qcp $< $@
 
-$(HCP_ATTESTSVC_OUT)/common/tail_wait.pl: | $(HCP_ATTESTSVC_OUT)/common
-$(HCP_ATTESTSVC_OUT)/common/tail_wait.pl: $(HCP_SRC)/tail_wait.pl
-$(HCP_ATTESTSVC_OUT)/common/tail_wait.pl:
+# And the safeboot bundle
+HCP_ATTESTSVC_PATHS += $(HCP_ATTESTSVC_OUT)/safeboot.tar.gz
+$(HCP_ATTESTSVC_OUT)/safeboot.tar.gz: | $(HCP_ATTESTSVC_OUT)
+$(HCP_ATTESTSVC_OUT)/safeboot.tar.gz: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz
+$(HCP_ATTESTSVC_OUT)/safeboot.tar.gz:
 	$Qcp $< $@
 
-$(HCP_ATTESTSVC_OUT)/common.Dockerfile: | $(HCP_ATTESTSVC_OUT)
-$(HCP_ATTESTSVC_OUT)/common.Dockerfile: $(HCP_ATTESTSVC_SRC)/Makefile
-$(HCP_ATTESTSVC_OUT)/common.Dockerfile: $(HCP_ATTESTSVC_SRC)/common.Dockerfile
-$(HCP_ATTESTSVC_OUT)/common.Dockerfile:
+# And the hcp-{common,attestsvc} bundles
+HCP_ATTESTSVC_PATHS += $(HCP_ATTESTSVC_OUT)/hcp-common.tar.gz
+HCP_ATTESTSVC_PATHS += $(HCP_ATTESTSVC_OUT)/hcp-attestsvc.tar.gz
+$(HCP_ATTESTSVC_OUT)/hcp-common.tar.gz: | $(HCP_ATTESTSVC_OUT)
+$(HCP_ATTESTSVC_OUT)/hcp-common.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz
+$(HCP_ATTESTSVC_OUT)/hcp-common.tar.gz:
+	$Qcp $< $@
+$(HCP_ATTESTSVC_OUT)/hcp-attestsvc.tar.gz: | $(HCP_ATTESTSVC_OUT)
+$(HCP_ATTESTSVC_OUT)/hcp-attestsvc.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz
+$(HCP_ATTESTSVC_OUT)/hcp-attestsvc.tar.gz:
+	$Qcp $< $@
+
+# Dockerfile-generation.
+$(HCP_ATTESTSVC_OUT)/Dockerfile: | $(HCP_ATTESTSVC_OUT)
+$(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_ATTESTSVC_SRC)/Makefile
+$(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_ATTESTSVC_SRC)/Dockerfile
+$(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_SUBMODULES_OUT)/install.tar.gz.inject
+$(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject
+$(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject
+$(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject
+$(HCP_ATTESTSVC_OUT)/Dockerfile:
 	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
-	$Qcat $(HCP_ATTESTSVC_SRC)/common.Dockerfile >> $@
+	$Qcat $(HCP_ATTESTSVC_SRC)/Dockerfile >> $@
+	$Qcat $(HCP_SUBMODULES_OUT)/install.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject >> $@
 
 # "docker build" to create the container image (recipe only)
-$(HCP_ATTESTSVC_OUT)/common.built: $(HCP_ATTESTSVC_OUT)/common.Dockerfile
-$(HCP_ATTESTSVC_OUT)/common.built: $(HCP_ATTESTSVC_OUT)/common/common.sh
-$(HCP_ATTESTSVC_OUT)/common.built: $(HCP_ATTESTSVC_OUT)/common/tail_wait.pl
-$(HCP_ATTESTSVC_OUT)/common.built: $(HCP_BASE_TOUCHFILE)
-$(HCP_ATTESTSVC_OUT)/common.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc-common \
+$(HCP_ATTESTSVC_OUT)/built: $(HCP_ATTESTSVC_OUT)/Dockerfile
+$(HCP_ATTESTSVC_OUT)/built: $(HCP_ATTESTSVC_PATHS)
+$(HCP_ATTESTSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
+$(HCP_ATTESTSVC_OUT)/built:
+	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc \
 	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc=1 \
-	               -f $(HCP_ATTESTSVC_OUT)/common.Dockerfile \
+	               -f $(HCP_ATTESTSVC_OUT)/Dockerfile \
 	               --build-arg HCP_USER=$(HCP_USER) \
-	               $(HCP_ATTESTSVC_OUT)/common/
+	               $(HCP_ATTESTSVC_OUT)
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_attestsvc-common:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-common,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc-common
+clean_hcp_attestsvc:
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc,$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc
 endif
-	$Qrm -f $(HCP_ATTESTSVC_OUT)/common.*
-	$Qrm -rf $(HCP_ATTESTSVC_OUT)/common
-
-##################
-# attestsvc-hcp #
-##################
-
-MDIRS += $(HCP_ATTESTSVC_OUT)/hcp
-$(HCP_ATTESTSVC_OUT)/hcp: | $(HCP_ATTESTSVC_OUT)
-
-# The only local (attestsvc-specific) sources we need are two scripts. As such,
-# bypass the scripting and Dockerfile-substitution gymnastics in
-# attestsvc-repl.
-$(HCP_ATTESTSVC_OUT)/hcp/run_hcp.sh: | $(HCP_ATTESTSVC_OUT)/hcp
-$(HCP_ATTESTSVC_OUT)/hcp/run_hcp.sh: $(HCP_ATTESTSVC_SRC)/run_hcp.sh
-$(HCP_ATTESTSVC_OUT)/hcp/run_hcp.sh:
-	$Qcp $< $@
-$(HCP_ATTESTSVC_OUT)/hcp/wrapper-attest-server.sh: | $(HCP_ATTESTSVC_OUT)/hcp
-$(HCP_ATTESTSVC_OUT)/hcp/wrapper-attest-server.sh: $(HCP_ATTESTSVC_SRC)/wrapper-attest-server.sh
-$(HCP_ATTESTSVC_OUT)/hcp/wrapper-attest-server.sh:
-	$Qcp $< $@
-HCP_ATTESTSVC_HCP_PATHS := \
-	$(HCP_ATTESTSVC_OUT)/hcp/run_hcp.sh \
-	$(HCP_ATTESTSVC_OUT)/hcp/wrapper-attest-server.sh
-
-# Inject the "SAFEBOOT_SBIN" files. Same comments as for enrollsvc-hcp.
-MDIRS += $(HCP_ATTESTSVC_OUT)/hcp/safeboot-sbin
-MDIRS += $(HCP_ATTESTSVC_OUT)/hcp/safeboot-xtra
-$(HCP_ATTESTSVC_OUT)/hcp/safeboot-sbin: | $(HCP_ATTESTSVC_OUT)/hcp
-$(HCP_ATTESTSVC_OUT)/hcp/safeboot-xtra: | $(HCP_ATTESTSVC_OUT)/hcp
-
-HCP_ATTESTSVC_SAFEBOOT_SBIN := $(shell cd $(TOP)/sbin && ls -1)
-HCP_ATTESTSVC_SAFEBOOT_XTRA := functions.sh safeboot.conf
-define enrollsvc_safeboot_file
-$(HCP_ATTESTSVC_OUT)/hcp/safeboot-$2/$1: | $(HCP_ATTESTSVC_OUT)/hcp/safeboot-$2
-$(HCP_ATTESTSVC_OUT)/hcp/safeboot-$2/$1: $(TOP)/$3/$1
-$(HCP_ATTESTSVC_OUT)/hcp/safeboot-$2/$1:
-	$Qcp $$< $$@
-$(eval HCP_ATTESTSVC_HCP_PATHS += $(HCP_ATTESTSVC_OUT)/hcp/safeboot-$2/$1)
-endef
-$(foreach i,$(HCP_ATTESTSVC_SAFEBOOT_SBIN),$(eval $(call enrollsvc_safeboot_file,$i,sbin,sbin)))
-$(foreach i,$(HCP_ATTESTSVC_SAFEBOOT_XTRA),$(eval $(call enrollsvc_safeboot_file,$i,xtra,.)))
-
-# Dockerfile-generation
-$(HCP_ATTESTSVC_OUT)/hcp.Dockerfile: | $(HCP_ATTESTSVC_OUT)
-$(HCP_ATTESTSVC_OUT)/hcp.Dockerfile: $(HCP_ATTESTSVC_SRC)/Makefile
-$(HCP_ATTESTSVC_OUT)/hcp.Dockerfile: $(HCP_ATTESTSVC_SRC)/hcp.Dockerfile
-$(HCP_ATTESTSVC_OUT)/hcp.Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)attestsvc-common" > $@
-	$Qcat $(HCP_ATTESTSVC_SRC)/hcp.Dockerfile >> $@
-
-# "docker build" to create the container image (recipe only)
-$(HCP_ATTESTSVC_OUT)/hcp.built: $(HCP_ATTESTSVC_OUT)/hcp.Dockerfile
-$(HCP_ATTESTSVC_OUT)/hcp.built: $(HCP_ATTESTSVC_HCP_PATHS)
-$(HCP_ATTESTSVC_OUT)/hcp.built: $(HCP_ATTESTSVC_OUT)/common.built
-$(HCP_ATTESTSVC_OUT)/hcp.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp \
-	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc_hcp=1 \
-	               -f $(HCP_ATTESTSVC_OUT)/hcp.Dockerfile \
-	               $(HCP_ATTESTSVC_OUT)/hcp/
-	$Qtouch $@
-
-# "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_attestsvc-hcp:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp
-endif
-	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.*
-	$Qrm -rf $(HCP_ATTESTSVC_OUT)/hcp
-
-##################
-# attestsvc-repl #
-##################
-
-MDIRS += $(HCP_ATTESTSVC_OUT)/repl
-$(HCP_ATTESTSVC_OUT)/repl: | $(HCP_ATTESTSVC_OUT)
-
-#HCP_ATTESTSVC_REPL_FILES_NOEXEC := <unused>
-HCP_ATTESTSVC_REPL_FILES_EXEC := \
-	run_repl.sh setup_repl.sh init_clones.sh updater_loop.sh
-HCP_ATTESTSVC_REPL_FILES := $(HCP_ATTESTSVC_REPL_FILES_NOEXEC) $(HCP_ATTESTSVC_REPL_FILES_EXEC)
-HCP_ATTESTSVC_REPL_PATHS := $(foreach i,$(HCP_ATTESTSVC_REPL_FILES),$(HCP_ATTESTSVC_OUT)/repl/$i)
-
-define attestsvc_repl_file
-$(HCP_ATTESTSVC_OUT)/repl/$1: | $(HCP_ATTESTSVC_OUT)/repl
-$(HCP_ATTESTSVC_OUT)/repl/$1: $(HCP_ATTESTSVC_SRC)/$1
-$(HCP_ATTESTSVC_OUT)/repl/$1:
-	$Qcp $$< $$@
-endef
-$(foreach i,$(HCP_ATTESTSVC_REPL_FILES),$(eval $(call attestsvc_repl_file,$i)))
-
-# Dockerfile-generation. Same note as for hcp.Dockerfile above.
-$(HCP_ATTESTSVC_OUT)/repl.Dockerfile: | $(HCP_ATTESTSVC_OUT)
-$(HCP_ATTESTSVC_OUT)/repl.Dockerfile: $(HCP_ATTESTSVC_SRC)/Makefile
-$(HCP_ATTESTSVC_OUT)/repl.Dockerfile: $(HCP_ATTESTSVC_SRC)/repl.Dockerfile
-$(HCP_ATTESTSVC_OUT)/repl.Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)attestsvc-common" > $@
-	$Qcat $(HCP_ATTESTSVC_SRC)/repl.Dockerfile | \
-	sed -e "s/HCP_ATTESTSVC_REPL_FILES_NOEXEC/$(HCP_ATTESTSVC_REPL_FILES_NOEXEC)/" | \
-	sed -e "s/HCP_ATTESTSVC_REPL_FILES_EXEC/$(HCP_ATTESTSVC_REPL_FILES_EXEC)/" >> $@
-
-# "docker build" to create the container image (recipe only)
-$(HCP_ATTESTSVC_OUT)/repl.built: $(HCP_ATTESTSVC_OUT)/repl.Dockerfile
-$(HCP_ATTESTSVC_OUT)/repl.built: $(HCP_ATTESTSVC_REPL_PATHS)
-$(HCP_ATTESTSVC_OUT)/repl.built: $(HCP_ATTESTSVC_OUT)/common.built
-$(HCP_ATTESTSVC_OUT)/repl.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
-	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl=1 \
-	               -f $(HCP_ATTESTSVC_OUT)/repl.Dockerfile \
-	               $(HCP_ATTESTSVC_OUT)/repl/
-	$Qtouch $@
-
-# "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_attestsvc-repl:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-repl,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc-repl
-endif
-	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.*
-	$Qrm -rf $(HCP_ATTESTSVC_OUT)/repl
+	$Qrm -rf $(HCP_ATTESTSVC_OUT)
 
 ################
 # cleanup deps #
 ################
 
-clean_hcp: clean_hcp_attestsvc
-
-clean_hcp_base: clean_hcp_attestsvc-common
-
-clean_hcp_attestsvc: clean_hcp_attestsvc-common
-
-clean_hcp_attestsvc-common: clean_hcp_attestsvc-hcp
-clean_hcp_attestsvc-common: clean_hcp_attestsvc-repl
+clean_hcp_base: clean_hcp_attestsvc
 
 
 
 # TODO: Same TODO note as in enrollsvc.
 
 # Both the attestsvc containers mount the same state, which they expect to be
-# at a path set by STATE_PREFIX. -repl mounts readwrite, -hcp mounts readonly.
+# at a path set by ATTESTSVC_STATE_PREFIX.
+# -repl mounts readwrite, -hcp mounts readonly.
 HCP_ATTESTSVC_STATE := $(HCP_ATTESTSVC_OUT)/run
 HCP_ATTESTSVC_STATE_PREFIX := /attestsvc
 
@@ -286,11 +175,9 @@ endif
 
 # "docker run [] setup_attestdb", for one-time initialization (recipe only)
 ifdef NO_REINIT
-$(HCP_ATTESTSVC_OUT)/run.initialized: | $(HCP_ATTESTSVC_OUT)/repl.built
-$(HCP_ATTESTSVC_OUT)/run.initialized: | $(HCP_ATTESTSVC_OUT)/hcp.built
+$(HCP_ATTESTSVC_OUT)/run.initialized: | $(HCP_ATTESTSVC_OUT)/built
 else
-$(HCP_ATTESTSVC_OUT)/run.initialized: $(HCP_ATTESTSVC_OUT)/repl.built
-$(HCP_ATTESTSVC_OUT)/run.initialized: $(HCP_ATTESTSVC_OUT)/hcp.built
+$(HCP_ATTESTSVC_OUT)/run.initialized: $(HCP_ATTESTSVC_OUT)/built
 endif
 $(HCP_ATTESTSVC_OUT)/run.initialized: | $(HCP_OUT)/testnetwork.created
 $(HCP_ATTESTSVC_OUT)/run.initialized: | $(HCP_ENROLLSVC_OUT)/repl.run.started
@@ -313,16 +200,16 @@ endif
 	$Qmkdir $(HCP_ATTESTSVC_STATE)
 	$Qdocker run -i --rm \
 		-v $(HCP_ATTESTSVC_STATE):$(HCP_ATTESTSVC_STATE_PREFIX) \
-		--env STATE_PREFIX="$(HCP_ATTESTSVC_STATE_PREFIX)" \
-		--env REMOTE_REPO="$(HCP_ATTESTSVC_REMOTE_REPO)" \
-		--env UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
+		--env ATTESTSVC_STATE_PREFIX="$(HCP_ATTESTSVC_STATE_PREFIX)" \
+		--env ATTESTSVC_REMOTE_REPO="$(HCP_ATTESTSVC_REMOTE_REPO)" \
+		--env ATTESTSVC_UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
 		--hostname $(HCP_ATTESTSVC_REPL_HOSTNAME) \
 		--network-alias $(HCP_ATTESTSVC_REPL_HOSTNAME) \
 		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl_setup=1 \
-		$(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
-		/hcp/setup_repl.sh
+		$(SAFEBOOT_HCP_DSPACE)attestsvc \
+		/hcp/attestsvc/setup_repl.sh
 	$Qecho "Done setting up 'attestsvc' state"
 	$Qtouch $@
 
@@ -344,8 +231,10 @@ ifndef FORCE
 endif
 endif
 ifdef HCP_ATTESTSVC_INITIALIZED
-	$Qrm -rf $(HCP_ATTESTSVC_STATE)
-	$Qrm -rf $(HCP_ATTESTSVC_MSGBUS)
+	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
+		$(ASSIST_CLEANUP) volume $(HCP_ATTESTSVC_STATE)
+	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
+		$(ASSIST_CLEANUP) volume $(HCP_ATTESTSVC_MSGBUS)
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/run.initialized
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.run.*
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.run.*
@@ -378,17 +267,18 @@ $(HCP_ATTESTSVC_OUT)/repl.run.started:
 	$Qdocker run -d \
 		--cidfile=$(HCP_ATTESTSVC_OUT)/repl.run.cid \
 		-v $(HCP_ATTESTSVC_STATE):$(HCP_ATTESTSVC_STATE_PREFIX):rw \
-		--env STATE_PREFIX="$(HCP_ATTESTSVC_STATE_PREFIX)" \
-		--env REMOTE_REPO="$(HCP_ATTESTSVC_REMOTE_REPO)" \
-		--env UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
+		--env ATTESTSVC_STATE_PREFIX="$(HCP_ATTESTSVC_STATE_PREFIX)" \
+		--env ATTESTSVC_REMOTE_REPO="$(HCP_ATTESTSVC_REMOTE_REPO)" \
+		--env ATTESTSVC_UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
 		-v $(HCP_ATTESTSVC_MSGBUS):$(HCP_ATTESTSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
 		--hostname $(HCP_ATTESTSVC_REPL_HOSTNAME) \
 		--network-alias $(HCP_ATTESTSVC_REPL_HOSTNAME) \
+		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_repl_run=1 \
-		$(SAFEBOOT_HCP_DSPACE)attestsvc-repl \
-		/hcp/run_repl.sh
+		$(SAFEBOOT_HCP_DSPACE)attestsvc \
+		/hcp/attestsvc/run_repl.sh
 	$Qecho "Done starting 'attestsvc-repl'"
 	$Qecho "Output at; $(HCP_ATTESTSVC_MSGBUS)/attestsvc-repl"
 	$Qtouch $@
@@ -441,18 +331,19 @@ $(HCP_ATTESTSVC_OUT)/hcp.run.started:
 	$Qdocker run -d \
 		--cidfile=$(HCP_ATTESTSVC_OUT)/hcp.run.cid \
 		-v $(HCP_ATTESTSVC_STATE):$(HCP_ATTESTSVC_STATE_PREFIX):ro \
-		--env STATE_PREFIX="$(HCP_ATTESTSVC_STATE_PREFIX)" \
-		--env REMOTE_REPO="$(HCP_ATTESTSVC_REMOTE_REPO)" \
-		--env UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
+		--env ATTESTSVC_STATE_PREFIX="$(HCP_ATTESTSVC_STATE_PREFIX)" \
+		--env ATTESTSVC_REMOTE_REPO="$(HCP_ATTESTSVC_REMOTE_REPO)" \
+		--env ATTESTSVC_UPDATE_TIMER="$(HCP_ATTESTSVC_UPDATE_TIMER)" \
 		-v $(HCP_ATTESTSVC_MSGBUS):$(HCP_ATTESTSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp \
 		--hostname $(HCP_ATTESTSVC_HCP_HOSTNAME) \
 		--network-alias $(HCP_ATTESTSVC_HCP_HOSTNAME) \
 		-p 8080:8080 \
+		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_hcp=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_hcp_run=1 \
-		$(SAFEBOOT_HCP_DSPACE)attestsvc-hcp \
-		/hcp/run_hcp.sh
+		$(SAFEBOOT_HCP_DSPACE)attestsvc \
+		/hcp/attestsvc/run_hcp.sh
 	$Qecho "Done starting 'attestsvc-hcp'"
 	$Qecho "Output at; $(HCP_ATTESTSVC_MSGBUS)/attestsvc-hcp"
 	$Qtouch $@
@@ -492,6 +383,5 @@ endif
 # cleanup deps #
 ################
 
-clean_hcp_attestsvc-hcp: clean_hcp_attestsvc_run
-clean_hcp_attestsvc-repl: clean_hcp_attestsvc_run
+clean_hcp_attestsvc: clean_hcp_attestsvc_run
 clean_hcp_testnetwork: clean_hcp_attestsvc_run

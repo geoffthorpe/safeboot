@@ -4,7 +4,7 @@
 exec 1> /msgbus/enrollsvc-repl
 exec 2>&1
 
-. /hcp/common.sh
+. /hcp/enrollsvc/common.sh
 
 expect_root
 
@@ -21,7 +21,7 @@ echo "Running 'enrollsvc-repl' service (git-daemon)"
 (drop_privs_db /usr/lib/git-core/git-daemon \
 	--reuseaddr --verbose \
 	--listen=0.0.0.0 \
-	--base-path=$STATE_PREFIX \
+	--base-path=$ENROLLSVC_STATE_PREFIX \
 	$REPO_PATH) &
 THEPID=$!
 disown %

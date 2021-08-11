@@ -1,6 +1,9 @@
-# We need some upstream stuff
-RUN apt-get install -y python3-yaml python3-distutils python3-cryptography
-RUN apt-get install -y file
+RUN apt-get install -y git
+RUN apt-get install -y python3-yaml
+
+ARG HCP_USER
+RUN useradd -m -s /bin/bash $HCP_USER
+ENV HCP_USER=$HCP_USER
 
 # The build system derives a build Dockerfile from this source Dockerfile, and
 # appends tarball-injection logic when it does so. Hence this comment!

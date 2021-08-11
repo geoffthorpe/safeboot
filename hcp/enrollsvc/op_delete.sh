@@ -8,4 +8,4 @@ export QUERY_PLEASE_ALSO_DELETE=1
 
 # Source rather then execute, that way $0 shows the right thing and the
 # remaining args ($1, $2, etc) are preserved without effort.
-. /hcp/op_query.sh
+. /hcp/enrollsvc/op_query.sh

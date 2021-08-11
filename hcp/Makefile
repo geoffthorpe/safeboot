@@ -44,8 +44,14 @@ include hcp/base/Makefile
 # which can be undesirable, unreliable, or impossible for many reasons).
 include hcp/builder/Makefile
 
-# Rules for building submodules (using "builder")
+# Compile submodules (using "builder"), resulting in install.tar.gz, literally
+# a tarball of a root-level installation ("/install") of the submodules.
 include hcp/submodules/Makefile
+
+# Produce tarballs of scripts, for installation into containers. This includes
+# safeboot.tar.gz (literally a tarball of safeboot scripts in an installed
+# path) and hcp-<x>.tar.gz for <x> in {enrollsvc,attestsvc,swtpmsvc,client}.
+include hcp/scripts/Makefile
 
 # TODO: the creating, destroy, starting, and stopping of instances (both
 # Enrollment and Attestation) is currently mingled into the Makefiles that
@@ -62,22 +68,22 @@ include hcp/enrollsvc/Makefile
 include hcp/attestsvc/Makefile
 
 # Software TPM
-include hcp/swtpm/Makefile
+include hcp/swtpmsvc/Makefile
 
 # Example client/host (containerized)
 include hcp/client/Makefile
 
 # Rule to build everything (unmentioned stuff, like submodules, is dragged in
 # by dependency)
-hcp_buildall: hcp_enrollsvc hcp_attestsvc hcp_swtpm hcp_client
+hcp_buildall: hcp_enrollsvc hcp_attestsvc hcp_swtpmsvc hcp_client
 
 # Rule to run everything
-hcp_startall: hcp_enrollsvc_run_start hcp_attestsvc_run_start hcp_swtpm_run_start hcp_client_run
-hcp_stopall: hcp_enrollsvc_run_stop hcp_attestsvc_run_stop hcp_swtpm_run_stop
+hcp_startall: hcp_enrollsvc_run_start hcp_attestsvc_run_start hcp_swtpmsvc_run_start hcp_client_run
+hcp_stopall: hcp_enrollsvc_run_stop hcp_attestsvc_run_stop hcp_swtpmsvc_run_stop
 hcp_runall: hcp_startall
 	$Qecho "Services started and client completed, tearing down"
 	$Q$(MAKE) hcp_stopall
-hcp_clearall: clean_hcp_enrollsvc_run clean_hcp_attestsvc_run clean_hcp_swtpm_run clean_hcp_client_run
+hcp_clearall: clean_hcp_enrollsvc_run clean_hcp_attestsvc_run clean_hcp_swtpmsvc_run clean_hcp_client_run
 
 # This target allows you to shell into a running container (using docker exec).
 # If CID is set, it attempts to shell into the container it identifies,

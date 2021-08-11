@@ -1,9 +1,9 @@
 #!/bin/bash
 
-. /hcp/common.sh
+. /hcp/swtpmsvc/common.sh
 
-MSGBUS_OUT=/msgbus/swtpm
-MSGBUS_CTRL=/msgbus/swtpm-ctrl
+MSGBUS_OUT=/msgbus/swtpmsvc
+MSGBUS_CTRL=/msgbus/swtpmsvc-ctrl
 TPMPORT1=9876
 TPMPORT2=9877
 
@@ -11,7 +11,7 @@ TPMPORT2=9877
 exec 1> $MSGBUS_OUT
 exec 2>&1
 
-echo "Running 'swtpm' service (for $ENROLL_HOSTNAME)"
+echo "Running 'swtpmsvc' service (for $SWTPMSVC_ENROLL_HOSTNAME)"
 
 # Start the software TPM
 
@@ -21,7 +21,7 @@ echo "Running 'swtpm' service (for $ENROLL_HOSTNAME)"
 # This could probably be fixed by dy doing a tail_wait on our own output to
 # pick up the telltale signs from the child process that the service is
 # genuinely listening and ready.
-swtpm socket --tpm2 --tpmstate dir=$STATE_PREFIX \
+swtpm socket --tpm2 --tpmstate dir=$SWTPMSVC_STATE_PREFIX \
 	--server type=tcp,bindaddr=0.0.0.0,port=$TPMPORT1 \
 	--ctrl type=tcp,bindaddr=0.0.0.0,port=$TPMPORT2 \
 	--flags startup-clear &

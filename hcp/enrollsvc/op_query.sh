@@ -3,7 +3,7 @@
 # NB: this query logic is transformed into delete logic by the presence of
 # QUERY_PLEASE_ALSO_DELETE.
 
-. /hcp/common.sh
+. /hcp/enrollsvc/common.sh
 
 expect_db_user
 

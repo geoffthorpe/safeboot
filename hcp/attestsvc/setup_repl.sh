@@ -1,10 +1,10 @@
 #!/bin/bash
 
-. /hcp/common.sh
+. /hcp/attestsvc/common.sh
 
 expect_root
 
 # This is the one-time init hook, so make sure the mounted dir has appropriate ownership
-chown $HCP_USER:$HCP_USER $STATE_PREFIX
+chown $HCP_USER:$HCP_USER $ATTESTSVC_STATE_PREFIX
 
-drop_privs_hcp /hcp/init_clones.sh
+drop_privs_hcp /hcp/attestsvc/init_clones.sh

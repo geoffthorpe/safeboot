@@ -54,14 +54,14 @@ def home():
 
 # We enforce privilege separation by running this flask app as the $FLASK_USER
 # account, which has no direct access to any enrollment state. Specific sudo
-# rules allow the $FLASK_USER to invoke the 4 /hcp/op_<verb>.sh scripts (for
-# <verb> in "add", "query", "delete", and "find") running as $DB_USER. The
-# latter is the account that created the enrollment DB for use only by itself.
-# The primary role of the /hcp/op_<verb>.sh scripts is to perform
-# argument-validation, to mitigate the risk of a compromised flask app. (The
-# sudo configuration ensures a fresh environment across this call interface,
-# preventing a compromised flask handler from influencing the scripts other
-# than by the arguments passed to the command.)
+# rules allow the $FLASK_USER to invoke the 4 /hcp/enrollsvc/op_<verb>.sh
+# scripts (for <verb> in "add", "query", "delete", and "find") running as
+# $DB_USER. The latter is the account that created the enrollment DB for use
+# only by itself.  The primary role of the /hcp/enrollsvc/op_<verb>.sh scripts
+# is to perform argument-validation, to mitigate the risk of a compromised
+# flask app. (The sudo configuration ensures a fresh environment across this
+# call interface, preventing a compromised flask handler from influencing the
+# scripts other than by the arguments passed to the command.)
 #
 # This is the sudo preamble to pass to subprocess.run(), the actual script name
 # and arguments follow this, and are appended by each handler.
@@ -76,8 +76,8 @@ def my_add():
     f = request.files['ekpub']
     h = request.form['hostname']
     # Create a temporary directory (for the ek.pub file), and make it world
-    # readable+executable. The /hcp/op_add.sh script runs behind sudo, as
-    # another user, and it needs to be able to read the ek.pub.
+    # readable+executable. The /hcp/enrollsvc/op_add.sh script runs behind
+    # sudo, as another user, and it needs to be able to read the ek.pub.
     tf = tempfile.TemporaryDirectory()
     s = os.stat(tf.name)
     os.chmod(tf.name, s.st_mode | S_IROTH | S_IXOTH)
@@ -86,7 +86,7 @@ def my_add():
     # op_add.sh script.
     p = os.path.join(tf.name, secure_filename(f.filename))
     f.save(p)
-    c = subprocess.run(sudoargs + ['/hcp/op_add.sh', p, h])
+    c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_add.sh', p, h])
     return {
         "returncode": c.returncode
     }
@@ -96,7 +96,7 @@ def my_query():
     if 'ekpubhash' not in request.args:
         return { "error": "ekpubhash not in request" }
     h = request.args['ekpubhash']
-    c = subprocess.run(sudoargs + ['/hcp/op_query.sh', h],
+    c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_query.sh', h],
                        stdout=subprocess.PIPE, text=True)
     if (c.returncode != 0):
         abort(500)
@@ -106,7 +106,7 @@ def my_query():
 @app.route('/v1/delete', methods=['POST'])
 def my_delete():
     h = request.form['ekpubhash']
-    c = subprocess.run(sudoargs + ['/hcp/op_delete.sh', h],
+    c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_delete.sh', h],
                        stdout=subprocess.PIPE, text=True)
     if (c.returncode != 0):
         abort(500)
@@ -116,7 +116,7 @@ def my_delete():
 @app.route('/v1/find', methods=['GET'])
 def my_find():
     h = request.args['hostname_suffix']
-    c = subprocess.run(sudoargs + ['/hcp/op_find.sh', h],
+    c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_find.sh', h],
                        stdout=subprocess.PIPE, text=True)
     if (c.returncode != 0):
         abort(500)

@@ -1,5 +1,3 @@
-# This is an include-only file. So no shebang header and no execute perms.
-#
 # This file (common.sh) contains definitions required within the git container
 # for operating on the repository, e.g. dropping privs to the DB_USER or
 # FLASK_USER, taking and releasing the lockfile, etc. The conventions for the
@@ -43,8 +41,9 @@ set -e
 # NB: because the user accounts (DB_USER and FLASK_USER) are created by
 # Dockerfile, those values _are_ baked into the container images and get
 # propogated into the initial (root) environment by "ENV" commands in the
-# Dockerfile. STATE_PREFIX, on the other hand, is specified at "docker run"
-# time. This file treats them all the same way, but it's worth knowing.
+# Dockerfile. ENROLLSVC_STATE_PREFIX, on the other hand, is specified at
+# "docker run" time. This file treats them all the same way, but it's worth
+# knowing.
 
 if [[ `whoami` != "root" ]]; then
 	if [[ -z "$HCP_ENVIRONMENT_SET" ]]; then
@@ -54,8 +53,8 @@ if [[ `whoami` != "root" ]]; then
 	fi
 fi
 
-if [[ -z "$STATE_PREFIX" || ! -d "$STATE_PREFIX" ]]; then
-	echo "Error, STATE_PREFIX (\"$STATE_PREFIX\") is not a valid path" >&2
+if [[ -z "$ENROLLSVC_STATE_PREFIX" || ! -d "$ENROLLSVC_STATE_PREFIX" ]]; then
+	echo "Error, ENROLLSVC_STATE_PREFIX (\"$ENROLLSVC_STATE_PREFIX\") is not a valid path" >&2
 	exit 1
 fi
 if [[ -z "$DB_USER" || ! -d "/home/$DB_USER" ]]; then
@@ -67,35 +66,56 @@ if [[ -z "$FLASK_USER" || ! -d "/home/$FLASK_USER" ]]; then
 	exit 1
 fi
 
+if [[ ! -d "/safeboot/sbin" ]]; then
+	echo "Error, /safeboot/sbin is not present" >&2
+	exit 1
+fi
+export PATH=$PATH:/safeboot/sbin
+echo "Adding /safeboot/sbin to PATH" >&2
+
+if [[ -d "/install/bin" ]]; then
+	export PATH=$PATH:/install/bin
+	echo "Adding /install/sbin to PATH" >&2
+fi
+
+if [[ -d "/install/lib" ]]; then
+	export LD_LIBRARY_PATH=/install/lib:$LD_LIBRARY_PATH
+	echo "Adding /install/lib to LD_LIBRARY_PATH" >&2
+	if [[ -d /install/lib/python3/dist-packages ]]; then
+		export PYTHONPATH=/install/lib/python3/dist-packages:$PYTHONPATH
+		echo "Adding /install/lib/python3/dist-packages to PYTHONPATH" >&2
+	fi
+fi
+
 if [[ `whoami` == "root" ]]; then
 	echo "# HCP settings, put here so that non-root environments" >> /etc/environment
 	echo "# always get known-good values, especially via sudo!" >> /etc/environment
 	echo "DB_USER=$DB_USER" >> /etc/environment
 	echo "FLASK_USER=$FLASK_USER" >> /etc/environment
-	echo "STATE_PREFIX=$STATE_PREFIX" >> /etc/environment
+	echo "ENROLLSVC_STATE_PREFIX=$ENROLLSVC_STATE_PREFIX" >> /etc/environment
 	echo "HCP_ENVIRONMENT_SET=1" >> /etc/environment
 fi
 
 # Print the base configuration
 echo "Running '$0'" >&2
-echo "  STATE_PREFIX=$STATE_PREFIX" >&2
-echo "       DB_USER=$DB_USER" >&2
-echo "    FLASK_USER=$FLASK_USER" >&2
-echo "   DB_IN_SETUP=$DB_IN_SETUP" >&2
+echo "  ENROLLSVC_STATE_PREFIX=$ENROLLSVC_STATE_PREFIX" >&2
+echo "                 DB_USER=$DB_USER" >&2
+echo "              FLASK_USER=$FLASK_USER" >&2
+echo "             DB_IN_SETUP=$DB_IN_SETUP" >&2
 
 # Derive more configuration using these constants
 REPO_NAME=enrolldb.git
 EK_BASENAME=ekpubhash
-REPO_PATH=$STATE_PREFIX/$REPO_NAME
+REPO_PATH=$ENROLLSVC_STATE_PREFIX/$REPO_NAME
 EK_PATH=$REPO_PATH/$EK_BASENAME
-REPO_LOCKPATH=$STATE_PREFIX/lock-$REPO_NAME
+REPO_LOCKPATH=$ENROLLSVC_STATE_PREFIX/lock-$REPO_NAME
 
 # Print the additional configuration
-echo "     REPO_NAME=$REPO_NAME" >&2
-echo "   EK_BASENAME=$EK_BASENAME" >&2
-echo "     REPO_PATH=$REPO_PATH" >&2
-echo "       EK_PATH=$EK_PATH" >&2
-echo " REPO_LOCKPATH=$REPO_LOCKPATH" >&2
+echo "               REPO_NAME=$REPO_NAME" >&2
+echo "             EK_BASENAME=$EK_BASENAME" >&2
+echo "               REPO_PATH=$REPO_PATH" >&2
+echo "                 EK_PATH=$EK_PATH" >&2
+echo "           REPO_LOCKPATH=$REPO_LOCKPATH" >&2
 
 # Basic functions
 
@@ -149,7 +169,7 @@ function repo_cmd_unlock {
 # chicken and eggs, we source the original (in the root directory, put there by
 # Dockerfile) rather than the copy in the repo.
 
-. /hcp/common_defs.sh
+. /hcp/enrollsvc/common_defs.sh
 
 # Except ... we also provide a reverse-lookup (hostname to ekpubhash) in a
 # single file that the attestation service itself isn't supposed to need. We

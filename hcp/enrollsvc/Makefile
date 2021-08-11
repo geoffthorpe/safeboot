@@ -4,14 +4,11 @@ HCP_ENROLLSVC_OUT := $(HCP_OUT)/enrollsvc
 $(HCP_ENROLLSVC_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_ENROLLSVC_OUT)
 
-clean_hcp_enrollsvc:
-	$Qrm -rf $(HCP_ENROLLSVC_OUT)
-
 # Some summary notes about the enrollment service, a.k.a. "enrollsvc".
 #
-# This service consists of two containers (distinct images), "enrollsvc-mgmt"
-# and "enrollsvc-repl", which perform complementary functions but operate on
-# common state (a directory bind-mounted into both containers);
+# This service consists of two sub-services; "mgmt" and "repl", which perform
+# complementary functions but operate on common state (a directory bind-mounted
+# into both containers);
 #  * The common state consists of;
 #    - the "enrollment database", currently implemented as a git repository.
 #    - a "msgbus" directory, into which;
@@ -20,7 +17,7 @@ clean_hcp_enrollsvc:
 #        be picked up by the services. Currently, this is limited to "stop"
 #        functionality, which writes "die" to a file the service is
 #        "tail_wait"ing, triggering it to exit.
-#  * "enrollsvc-mgmt" provides the enrollment/registration functionality;
+#  * enrollsvc::mgmt provides the enrollment/registration functionality;
 #    - The common state is mounted read-write.
 #    - The enrollment interface is implemented as a flask app.
 #      - API exposed at http[s]://<server>[:port]/v1/{add,query,delete,find}
@@ -36,8 +33,8 @@ clean_hcp_enrollsvc:
 #      functions via constrained sudo rules, to prevent environment
 #      contamination and limit information-passing to just the command
 #      arguments.
-#  * "enrollsvc-repl" provides a replication service to downstream attestation
-#    service instances ("attestsvc-repl").
+#  * enrollsvc::repl provides a replication service to downstream attestation
+#    service instances (attestsvc::repl).
 #    - The common state is mounted read-only!
 #    - The replication service uses "git-daemon" directly, running as a
 #      non-root (DB_USER) account in the container.
@@ -50,14 +47,9 @@ clean_hcp_enrollsvc:
 #      - The database (directory) is read-only at the mount level, so we don't
 #        need account separation to protect the database from modification by
 #        the replication functionality.
-#
-# For reasons outlined in common.Dockerfile, we build an 'enrollsvc-common'
-# image to be a common ancestor of enrollsvc-mgmt and enrollsvc-repl.
 
 # wrapper targets to build the "enrollsvc" images
-hcp_enrollsvc-mgmt: $(HCP_ENROLLSVC_OUT)/mgmt.built
-hcp_enrollsvc-repl: $(HCP_ENROLLSVC_OUT)/repl.built
-hcp_enrollsvc: hcp_enrollsvc-mgmt hcp_enrollsvc-repl
+hcp_enrollsvc: $(HCP_ENROLLSVC_OUT)/built
 
 # A "DB_USER" account is created so that asset-generation and DB manipulation
 # doesn't require root privs.
@@ -68,205 +60,78 @@ DB_USER := db_user
 FLASK_USER := flask_user
 
 
-####################
-# enrollsvc-common #
-####################
+#############
+# enrollsvc #
+#############
 
-MDIRS += $(HCP_ENROLLSVC_OUT)/common
-$(HCP_ENROLLSVC_OUT)/common: | $(HCP_ENROLLSVC_OUT)
-
-# Set up rules for synchronising implementation files from their
-# version-controlled dev location to the Docker context area. There are two
-# flavors, which get substituted into the Dockerfile in the recipe lower down.
-# The Dockerfile uses them to distinguish chmod 755 from 644.
-HCP_ENROLLSVC_COMMON_FILES_NOEXEC := common.sh common_defs.sh
-#HCP_ENROLLSVC_COMMON_FILES_EXEC := <unused>
-HCP_ENROLLSVC_COMMON_FILES := $(HCP_ENROLLSVC_COMMON_FILES_NOEXEC) \
-			      $(HCP_ENROLLSVC_COMMON_FILES_EXEC)
-HCP_ENROLLSVC_COMMON_PATHS := $(foreach i,$(HCP_ENROLLSVC_COMMON_FILES),\
-					$(HCP_ENROLLSVC_OUT)/common/$i)
-
-define enrollsvc_common_file
-$(HCP_ENROLLSVC_OUT)/common/$1: | $(HCP_ENROLLSVC_OUT)/common
-$(HCP_ENROLLSVC_OUT)/common/$1: $(HCP_ENROLLSVC_SRC)/$1
-$(HCP_ENROLLSVC_OUT)/common/$1:
-	$Qcp $$< $$@
-endef
-$(foreach i,$(HCP_ENROLLSVC_COMMON_FILES),$(eval $(call enrollsvc_common_file,$i)))
-
-# The bulk handling of "COMMON_FILES" (EXEC and NOEXEC) from hcp/enrollsvc/ was
-# scripted.
-# Now add hcp/tail_wait.pl (EXEC, and not from hcp/enrollsvc/!) as a one-off.
-HCP_ENROLLSVC_COMMON_FILES_EXEC += tail_wait.pl
-HCP_ENROLLSVC_COMMON_PATHS += $(HCP_ENROLLSVC_OUT)/common/tail_wait.pl
-$(HCP_ENROLLSVC_OUT)/common/tail_wait.pl: | $(HCP_ENROLLSVC_OUT)/common
-$(HCP_ENROLLSVC_OUT)/common/tail_wait.pl: $(HCP_SRC)/tail_wait.pl
-$(HCP_ENROLLSVC_OUT)/common/tail_wait.pl:
+# Include the submodule bundle
+HCP_ENROLLSVC_PATHS += $(HCP_ENROLLSVC_OUT)/install.tar.gz
+$(HCP_ENROLLSVC_OUT)/install.tar.gz: | $(HCP_ENROLLSVC_OUT)
+$(HCP_ENROLLSVC_OUT)/install.tar.gz: $(HCP_SUBMODULES_OUT)/install.tar.gz
+$(HCP_ENROLLSVC_OUT)/install.tar.gz:
 	$Qcp $< $@
 
-# Dockerfile-generation. NB: we don't just prepend our "FROM" line, we also
-# make substitutions, to plug our file-lists into the Dockerfile commands.
-$(HCP_ENROLLSVC_OUT)/common.Dockerfile: | $(HCP_ENROLLSVC_OUT)
-$(HCP_ENROLLSVC_OUT)/common.Dockerfile: $(HCP_ENROLLSVC_SRC)/Makefile
-$(HCP_ENROLLSVC_OUT)/common.Dockerfile: $(HCP_ENROLLSVC_SRC)/common.Dockerfile
-$(HCP_ENROLLSVC_OUT)/common.Dockerfile:
+# And the safeboot bundle
+HCP_ENROLLSVC_PATHS += $(HCP_ENROLLSVC_OUT)/safeboot.tar.gz
+$(HCP_ENROLLSVC_OUT)/safeboot.tar.gz: | $(HCP_ENROLLSVC_OUT)
+$(HCP_ENROLLSVC_OUT)/safeboot.tar.gz: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz
+$(HCP_ENROLLSVC_OUT)/safeboot.tar.gz:
+	$Qcp $< $@
+
+# And the hcp-{common,enrollsvc} bundles
+HCP_ENROLLSVC_PATHS += $(HCP_ENROLLSVC_OUT)/hcp-common.tar.gz
+HCP_ENROLLSVC_PATHS += $(HCP_ENROLLSVC_OUT)/hcp-enrollsvc.tar.gz
+$(HCP_ENROLLSVC_OUT)/hcp-common.tar.gz: | $(HCP_ENROLLSVC_OUT)
+$(HCP_ENROLLSVC_OUT)/hcp-common.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz
+$(HCP_ENROLLSVC_OUT)/hcp-common.tar.gz:
+	$Qcp $< $@
+$(HCP_ENROLLSVC_OUT)/hcp-enrollsvc.tar.gz: | $(HCP_ENROLLSVC_OUT)
+$(HCP_ENROLLSVC_OUT)/hcp-enrollsvc.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz
+$(HCP_ENROLLSVC_OUT)/hcp-enrollsvc.tar.gz:
+	$Qcp $< $@
+
+# Dockerfile-generation.
+$(HCP_ENROLLSVC_OUT)/Dockerfile: | $(HCP_ENROLLSVC_OUT)
+$(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_ENROLLSVC_SRC)/Makefile
+$(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_ENROLLSVC_SRC)/Dockerfile
+$(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_SUBMODULES_OUT)/install.tar.gz.inject
+$(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject
+$(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject
+$(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz.inject
+$(HCP_ENROLLSVC_OUT)/Dockerfile:
 	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
-	$Qcat $(HCP_ENROLLSVC_SRC)/common.Dockerfile | \
-	sed -e "s/HCP_ENROLLSVC_COMMON_FILES_NOEXEC/$(HCP_ENROLLSVC_COMMON_FILES_NOEXEC)/" | \
-	sed -e "s/HCP_ENROLLSVC_COMMON_FILES_EXEC/$(HCP_ENROLLSVC_COMMON_FILES_EXEC)/" >> $@
+	$Qcat $(HCP_ENROLLSVC_SRC)/Dockerfile >> $@
+	$Qcat $(HCP_SUBMODULES_OUT)/install.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz.inject >> $@
 
 # "docker build" to create the container image (recipe only)
-$(HCP_ENROLLSVC_OUT)/common.built: $(HCP_ENROLLSVC_OUT)/common.Dockerfile
-$(HCP_ENROLLSVC_OUT)/common.built: $(HCP_ENROLLSVC_COMMON_PATHS)
-$(HCP_ENROLLSVC_OUT)/common.built: $(HCP_BASE_TOUCHFILE)
-$(HCP_ENROLLSVC_OUT)/common.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc-common \
+$(HCP_ENROLLSVC_OUT)/built: $(HCP_ENROLLSVC_OUT)/Dockerfile
+$(HCP_ENROLLSVC_OUT)/built: $(HCP_ENROLLSVC_PATHS)
+$(HCP_ENROLLSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
+$(HCP_ENROLLSVC_OUT)/built:
+	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc \
 	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc=1 \
-	               -f $(HCP_ENROLLSVC_OUT)/common.Dockerfile \
+	               -f $(HCP_ENROLLSVC_OUT)/Dockerfile \
 	               --build-arg DB_USER=$(DB_USER) \
 	               --build-arg FLASK_USER=$(FLASK_USER) \
-	               $(HCP_ENROLLSVC_OUT)/common/
+	               $(HCP_ENROLLSVC_OUT)
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_enrollsvc-common:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-common,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc-common
+clean_hcp_enrollsvc:
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc,$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc
 endif
-	$Qrm -f $(HCP_ENROLLSVC_OUT)/common.*
-	$Qrm -rf $(HCP_ENROLLSVC_OUT)/common
+	$Qrm -rf $(HCP_ENROLLSVC_OUT)
 
-##################
-# enrollsvc-repl #
-##################
-
-MDIRS += $(HCP_ENROLLSVC_OUT)/repl
-$(HCP_ENROLLSVC_OUT)/repl: | $(HCP_ENROLLSVC_OUT)
-
-# The only thing we need that isn't already in -common is the run_repl.sh
-# script. As such, we bypass the scripting and Dockerfile-substitution
-# gymnastics in -common (and in -mgmt).
-$(HCP_ENROLLSVC_OUT)/repl/run_repl.sh: | $(HCP_ENROLLSVC_OUT)/repl
-$(HCP_ENROLLSVC_OUT)/repl/run_repl.sh: $(HCP_ENROLLSVC_SRC)/run_repl.sh
-$(HCP_ENROLLSVC_OUT)/repl/run_repl.sh:
-	$Qcp $< $@
-
-# Dockerfile-generation
-$(HCP_ENROLLSVC_OUT)/repl.Dockerfile: | $(HCP_ENROLLSVC_OUT)
-$(HCP_ENROLLSVC_OUT)/repl.Dockerfile: $(HCP_ENROLLSVC_SRC)/Makefile
-$(HCP_ENROLLSVC_OUT)/repl.Dockerfile: $(HCP_ENROLLSVC_SRC)/repl.Dockerfile
-$(HCP_ENROLLSVC_OUT)/repl.Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)enrollsvc-common" > $@
-	$Qcat $(HCP_ENROLLSVC_SRC)/repl.Dockerfile >> $@
-
-# "docker build" to create the container image (recipe only)
-$(HCP_ENROLLSVC_OUT)/repl.built: $(HCP_ENROLLSVC_OUT)/repl.Dockerfile
-$(HCP_ENROLLSVC_OUT)/repl.built: $(HCP_ENROLLSVC_OUT)/repl/run_repl.sh
-$(HCP_ENROLLSVC_OUT)/repl.built: $(HCP_ENROLLSVC_OUT)/common.built
-$(HCP_ENROLLSVC_OUT)/repl.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl \
-	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc_repl=1 \
-	               -f $(HCP_ENROLLSVC_OUT)/repl.Dockerfile \
-	               $(HCP_ENROLLSVC_OUT)/repl/
-	$Qtouch $@
-
-# "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_enrollsvc-repl:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl
-endif
-	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.*
-	$Qrm -rf $(HCP_ENROLLSVC_OUT)/repl
-
-##################
-# enrollsvc-mgmt #
-##################
-
-MDIRS += $(HCP_ENROLLSVC_OUT)/mgmt
-$(HCP_ENROLLSVC_OUT)/mgmt: | $(HCP_ENROLLSVC_OUT)
-
-# Same idea as in enrollsvc-repl above.
-HCP_ENROLLSVC_MGMT_FILES_NOEXEC := \
-	rest_api.py
-HCP_ENROLLSVC_MGMT_FILES_EXEC := \
-	run_mgmt.sh setup_enrolldb.sh init_repo.sh flask_wrapper.sh \
-	op_add.sh op_query.sh op_delete.sh op_find.sh \
-	cb_checkout.sh cb_commit.sh
-HCP_ENROLLSVC_MGMT_FILES := $(HCP_ENROLLSVC_MGMT_FILES_NOEXEC) $(HCP_ENROLLSVC_MGMT_FILES_EXEC)
-HCP_ENROLLSVC_MGMT_PATHS := $(foreach i,$(HCP_ENROLLSVC_MGMT_FILES),$(HCP_ENROLLSVC_OUT)/mgmt/$i)
-
-define enrollsvc_mgmt_file
-$(HCP_ENROLLSVC_OUT)/mgmt/$1: | $(HCP_ENROLLSVC_OUT)/mgmt
-$(HCP_ENROLLSVC_OUT)/mgmt/$1: $(HCP_ENROLLSVC_SRC)/$1
-$(HCP_ENROLLSVC_OUT)/mgmt/$1:
-	$Qcp $$< $$@
-endef
-$(foreach i,$(HCP_ENROLLSVC_MGMT_FILES),$(eval $(call enrollsvc_mgmt_file,$i)))
-
-# Set up rules for injecting "SAFEBOOT_SBIN/EXTRA" files. (Right now, I'm
-# including functions.sh, safeboot.conf, and sbin/*. Perhaps an explicit list
-# would be harder to maintain but still objectively "better"?)
-
-MDIRS += $(HCP_ENROLLSVC_OUT)/mgmt/safeboot-sbin
-MDIRS += $(HCP_ENROLLSVC_OUT)/mgmt/safeboot-xtra
-$(HCP_ENROLLSVC_OUT)/mgmt/safeboot-sbin: | $(HCP_ENROLLSVC_OUT)/mgmt
-$(HCP_ENROLLSVC_OUT)/mgmt/safeboot-xtra: | $(HCP_ENROLLSVC_OUT)/mgmt
-
-HCP_ENROLLSVC_SAFEBOOT_SBIN := $(shell cd $(TOP)/sbin && ls -1)
-HCP_ENROLLSVC_SAFEBOOT_XTRA := functions.sh safeboot.conf
-define enrollsvc_safeboot_file
-$(HCP_ENROLLSVC_OUT)/mgmt/safeboot-$2/$1: | $(HCP_ENROLLSVC_OUT)/mgmt/safeboot-$2
-$(HCP_ENROLLSVC_OUT)/mgmt/safeboot-$2/$1: $(TOP)/$3/$1
-$(HCP_ENROLLSVC_OUT)/mgmt/safeboot-$2/$1:
-	$Qcp $$< $$@
-$(eval HCP_ENROLLSVC_MGMT_PATHS += $(HCP_ENROLLSVC_OUT)/mgmt/safeboot-$2/$1)
-endef
-$(foreach i,$(HCP_ENROLLSVC_SAFEBOOT_SBIN),$(eval $(call enrollsvc_safeboot_file,$i,sbin,sbin)))
-$(foreach i,$(HCP_ENROLLSVC_SAFEBOOT_XTRA),$(eval $(call enrollsvc_safeboot_file,$i,xtra,.)))
-
-# Dockerfile-generation. Same note as for repl.Dockerfile above.
-$(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile: | $(HCP_ENROLLSVC_OUT)
-$(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile: $(HCP_ENROLLSVC_SRC)/Makefile
-$(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile: $(HCP_ENROLLSVC_SRC)/mgmt.Dockerfile
-$(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)enrollsvc-common" > $@
-	$Qcat $(HCP_ENROLLSVC_SRC)/mgmt.Dockerfile | \
-	sed -e "s/HCP_ENROLLSVC_MGMT_FILES_NOEXEC/$(HCP_ENROLLSVC_MGMT_FILES_NOEXEC)/" | \
-	sed -e "s/HCP_ENROLLSVC_MGMT_FILES_EXEC/$(HCP_ENROLLSVC_MGMT_FILES_EXEC)/" >> $@
-
-# "docker build" to create the container image (recipe only)
-$(HCP_ENROLLSVC_OUT)/mgmt.built: $(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile
-$(HCP_ENROLLSVC_OUT)/mgmt.built: $(HCP_ENROLLSVC_MGMT_PATHS)
-$(HCP_ENROLLSVC_OUT)/mgmt.built: $(HCP_ENROLLSVC_OUT)/common.built
-$(HCP_ENROLLSVC_OUT)/mgmt.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
-	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt=1 \
-	               -f $(HCP_ENROLLSVC_OUT)/mgmt.Dockerfile \
-	               --build-arg DB_USER=$(DB_USER) \
-	               --build-arg FLASK_USER=$(FLASK_USER) \
-	               $(HCP_ENROLLSVC_OUT)/mgmt/
-	$Qtouch $@
-
-# "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_enrollsvc-mgmt:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt
-endif
-	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.*
-	$Qrm -rf $(HCP_ENROLLSVC_OUT)/mgmt
 
 ################
 # cleanup deps #
 ################
 
-clean_hcp: clean_hcp_enrollsvc
-
-clean_hcp_base: clean_hcp_enrollsvc-common
-
-clean_hcp_enrollsvc: clean_hcp_enrollsvc-common
-
-clean_hcp_enrollsvc-common: clean_hcp_enrollsvc-repl
-clean_hcp_enrollsvc-common: clean_hcp_enrollsvc-mgmt
+clean_hcp_base: clean_hcp_enrollsvc
 
 
 
@@ -279,7 +144,8 @@ clean_hcp_enrollsvc-common: clean_hcp_enrollsvc-mgmt
 # specify the per-instance details.
 
 # Both the enrollsvc containers mount the same state, which they expect to be
-# at a path set by STATE_PREFIX. -mgmt mounts readwrite, -repl mounts readonly.
+# at a path set by ENROLLSVC_STATE_PREFIX.
+# -mgmt mounts readwrite, -repl mounts readonly.
 HCP_ENROLLSVC_STATE := $(HCP_ENROLLSVC_OUT)/run
 HCP_ENROLLSVC_STATE_PREFIX := /enrollsvc
 
@@ -318,11 +184,9 @@ endif
 
 # "docker run [] setup_enrolldb", for one-time initialization (recipe only)
 ifdef NO_REINIT
-$(HCP_ENROLLSVC_OUT)/run.initialized: | $(HCP_ENROLLSVC_OUT)/mgmt.built
-$(HCP_ENROLLSVC_OUT)/run.initialized: | $(HCP_ENROLLSVC_OUT)/repl.built
+$(HCP_ENROLLSVC_OUT)/run.initialized: | $(HCP_ENROLLSVC_OUT)/built
 else
-$(HCP_ENROLLSVC_OUT)/run.initialized: $(HCP_ENROLLSVC_OUT)/mgmt.built
-$(HCP_ENROLLSVC_OUT)/run.initialized: $(HCP_ENROLLSVC_OUT)/repl.built
+$(HCP_ENROLLSVC_OUT)/run.initialized: $(HCP_ENROLLSVC_OUT)/built
 endif
 $(HCP_ENROLLSVC_OUT)/run.initialized: | $(HCP_OUT)/testnetwork.created
 $(HCP_ENROLLSVC_OUT)/run.initialized:
@@ -344,14 +208,14 @@ endif
 	$Qmkdir $(HCP_ENROLLSVC_STATE)
 	$Qdocker run -i --rm \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX) \
-		--env STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
+		--env ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
 		--hostname $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
 		--network-alias $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt_setup=1 \
-		$(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
-		/hcp/setup_enrolldb.sh
+		$(SAFEBOOT_HCP_DSPACE)enrollsvc \
+		/hcp/enrollsvc/setup_enrolldb.sh
 	$Qecho "Done setting up 'enrollsvc' state"
 	$Qtouch $@
 
@@ -373,8 +237,10 @@ ifndef FORCE
 endif
 endif
 ifdef HCP_ENROLLSVC_INITIALIZED
-	$Qrm -rf $(HCP_ENROLLSVC_STATE)
-	$Qrm -rf $(HCP_ENROLLSVC_MSGBUS)
+	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
+		$(ASSIST_CLEANUP) volume $(HCP_ENROLLSVC_STATE)
+	$QUTIL_IMAGE=$(SAFEBOOT_HCP_BASE) \
+		$(ASSIST_CLEANUP) volume $(HCP_ENROLLSVC_MSGBUS)
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/run.initialized
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.run.*
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.run.*
@@ -407,16 +273,17 @@ $(HCP_ENROLLSVC_OUT)/mgmt.run.started:
 	$Qdocker run -d \
 		--cidfile=$(HCP_ENROLLSVC_OUT)/mgmt.run.cid \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX):rw \
-		--env STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
+		--env ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		-v $(HCP_ENROLLSVC_MSGBUS):$(HCP_ENROLLSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
 		--hostname $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
 		--network-alias $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
 		-p 5000:5000 \
+		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt_run=1 \
-		$(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
-		/hcp/run_mgmt.sh
+		$(SAFEBOOT_HCP_DSPACE)enrollsvc \
+		/hcp/enrollsvc/run_mgmt.sh
 	$Qecho "Done starting 'enrollsvc-mgmt'"
 	$Qecho "Output at; $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-mgmt"
 	$Qtouch $@
@@ -469,16 +336,17 @@ $(HCP_ENROLLSVC_OUT)/repl.run.started:
 	$Qdocker run -d \
 		--cidfile=$(HCP_ENROLLSVC_OUT)/repl.run.cid \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX):ro \
-		--env STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
+		--env ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		-v $(HCP_ENROLLSVC_MSGBUS):$(HCP_ENROLLSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl \
 		--hostname $(HCP_ENROLLSVC_REPL_HOSTNAME) \
 		--network-alias $(HCP_ENROLLSVC_REPL_HOSTNAME) \
 		-p 9418:9418 \
+		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_repl=1 \
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_repl_run=1 \
-		$(SAFEBOOT_HCP_DSPACE)enrollsvc-repl \
-		/hcp/run_repl.sh
+		$(SAFEBOOT_HCP_DSPACE)enrollsvc \
+		/hcp/enrollsvc/run_repl.sh
 	$Qecho "Done starting 'enrollsvc-repl'"
 	$Qecho "Output at; $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-repl"
 	$Qtouch $@
@@ -518,6 +386,5 @@ endif
 # cleanup deps #
 ################
 
-clean_hcp_enrollsvc-repl: clean_hcp_enrollsvc_run
-clean_hcp_enrollsvc-mgmt: clean_hcp_enrollsvc_run
+clean_hcp_enrollsvc: clean_hcp_enrollsvc_run
 clean_hcp_testnetwork: clean_hcp_enrollsvc_run

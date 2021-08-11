@@ -199,6 +199,9 @@ $(HCP_SUBMODULES_OUT)/install.tar.gz:
 	$Q$(HCP_SUBMODULES_DOCKER_RUN) \
 		-v $(HCP_SUBMODULES_OUT):/put_it_here \
 		$(SAFEBOOT_HCP_DSPACE)builder bash -c "$(TGZ_CMD)"
+$(HCP_SUBMODULES_OUT)/install.tar.gz.inject: $(HCP_SUBMODULES_OUT)/install.tar.gz
+	$Qecho "COPY install.tar.gz /" > $@
+	$Qecho "RUN cd / && tar zxf install.tar.gz && rm install.tar.gz" >> $@
 
 # A wrapper target to build the submodules
 hcp_submodules: $(HCP_SUBMODULES_OUT)/install.tar.gz

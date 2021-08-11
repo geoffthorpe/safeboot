@@ -6,7 +6,7 @@
 exec 1> /msgbus/attestsvc-hcp
 exec 2>&1
 
-. /hcp/common.sh
+. /hcp/attestsvc/common.sh
 
 expect_root
 
@@ -14,7 +14,7 @@ TAILWAIT=/hcp/tail_wait.pl
 
 echo "Running 'attestsvc-hcp' service"
 
-(drop_privs_hcp /hcp/wrapper-attest-server.sh) &
+(drop_privs_hcp /hcp/attestsvc/wrapper-attest-server.sh) &
 THEPID=$!
 disown %
 echo "Backgrounded (pid=$THEPID)"
