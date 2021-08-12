@@ -73,9 +73,12 @@ include hcp/swtpmsvc/Makefile
 # Example client/host (containerized)
 include hcp/client/Makefile
 
+# A devel/debug image that has the whole kit and caboodle
+include hcp/caboodle/Makefile
+
 # Rule to build everything (unmentioned stuff, like submodules, is dragged in
 # by dependency)
-hcp_buildall: hcp_enrollsvc hcp_attestsvc hcp_swtpmsvc hcp_client
+hcp_buildall: hcp_enrollsvc hcp_attestsvc hcp_swtpmsvc hcp_client hcp_caboodle
 
 # Rule to run everything
 hcp_startall: hcp_enrollsvc_run_start hcp_attestsvc_run_start hcp_swtpmsvc_run_start hcp_client_run
@@ -83,7 +86,8 @@ hcp_stopall: hcp_enrollsvc_run_stop hcp_attestsvc_run_stop hcp_swtpmsvc_run_stop
 hcp_runall: hcp_startall
 	$Qecho "Services started and client completed, tearing down"
 	$Q$(MAKE) hcp_stopall
-hcp_clearall: clean_hcp_enrollsvc_run clean_hcp_attestsvc_run clean_hcp_swtpmsvc_run clean_hcp_client_run
+hcp_clearall: clean_hcp_enrollsvc_run clean_hcp_attestsvc_run clean_hcp_swtpmsvc_run
+hcp_clearall: clean_hcp_client_run clean_hcp_caboodle_run
 
 # This target allows you to shell into a running container (using docker exec).
 # If CID is set, it attempts to shell into the container it identifies,
