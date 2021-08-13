@@ -12,20 +12,20 @@ if [[ `whoami` != "root" ]]; then
 	fi
 fi
 
-if [[ -z "$ATTESTSVC_STATE_PREFIX" || ! -d "$ATTESTSVC_STATE_PREFIX" ]]; then
-	echo "Error, ATTESTSVC_STATE_PREFIX (\"$ATTESTSVC_STATE_PREFIX\") is not a valid path" >&2
+if [[ -z "$HCP_ATTESTSVC_STATE_PREFIX" || ! -d "$HCP_ATTESTSVC_STATE_PREFIX" ]]; then
+	echo "Error, HCP_ATTESTSVC_STATE_PREFIX (\"$HCP_ATTESTSVC_STATE_PREFIX\") is not a valid path" >&2
 	exit 1
 fi
 if [[ -z "$HCP_USER" || ! -d "/home/$HCP_USER" ]]; then
 	echo "Error, HCP_USER (\"$HCP_USER\") is not a valid user" >&2
 	exit 1
 fi
-if [[ -z "$ATTESTSVC_REMOTE_REPO" ]]; then
-	echo "Error, ATTESTSVC_REMOTE_REPO (\"$ATTESTSVC_REMOTE_REPO\") must be set" >&2
+if [[ -z "$HCP_ATTESTSVC_REMOTE_REPO" ]]; then
+	echo "Error, HCP_ATTESTSVC_REMOTE_REPO (\"$HCP_ATTESTSVC_REMOTE_REPO\") must be set" >&2
 	exit 1
 fi
-if [[ -z "$ATTESTSVC_UPDATE_TIMER" ]]; then
-	echo "Error, ATTESTSVC_UPDATE_TIMER (\"$ATTESTSVC_UPDATE_TIMER\") must be set" >&2
+if [[ -z "$HCP_ATTESTSVC_UPDATE_TIMER" ]]; then
+	echo "Error, HCP_ATTESTSVC_UPDATE_TIMER (\"$HCP_ATTESTSVC_UPDATE_TIMER\") must be set" >&2
 	exit 1
 fi
 
@@ -54,18 +54,18 @@ if [[ `whoami` == "root" ]]; then
 	echo "# HCP settings, put here so that non-root environments" >> /etc/environment
 	echo "# always get known-good values." >> /etc/environment
 	echo "HCP_USER=$HCP_USER" >> /etc/environment
-	echo "ATTESTSVC_STATE_PREFIX=$ATTESTSVC_STATE_PREFIX" >> /etc/environment
-	echo "ATTESTSVC_REMOTE_REPO=$ATTESTSVC_REMOTE_REPO" >> /etc/environment
-	echo "ATTESTSVC_UPDATE_TIMER=$ATTESTSVC_UPDATE_TIMER" >> /etc/environment
+	echo "HCP_ATTESTSVC_STATE_PREFIX=$HCP_ATTESTSVC_STATE_PREFIX" >> /etc/environment
+	echo "HCP_ATTESTSVC_REMOTE_REPO=$HCP_ATTESTSVC_REMOTE_REPO" >> /etc/environment
+	echo "HCP_ATTESTSVC_UPDATE_TIMER=$HCP_ATTESTSVC_UPDATE_TIMER" >> /etc/environment
 	echo "HCP_ENVIRONMENT_SET=1" >> /etc/environment
 fi
 
 # Print the base configuration
 echo "Running '$0'" >&2
 echo "                HCP_USER=$HCP_USER" >&2
-echo "  ATTESTSVC_STATE_PREFIX=$ATTESTSVC_STATE_PREFIX" >&2
-echo "   ATTESTSVC_REMOTE_REPO=$ATTESTSVC_REMOTE_REPO" >&2
-echo "  ATTESTSVC_UPDATE_TIMER=$ATTESTSVC_UPDATE_TIMER" >&2
+echo "  HCP_ATTESTSVC_STATE_PREFIX=$HCP_ATTESTSVC_STATE_PREFIX" >&2
+echo "   HCP_ATTESTSVC_REMOTE_REPO=$HCP_ATTESTSVC_REMOTE_REPO" >&2
+echo "  HCP_ATTESTSVC_UPDATE_TIMER=$HCP_ATTESTSVC_UPDATE_TIMER" >&2
 
 # Basic functions
 

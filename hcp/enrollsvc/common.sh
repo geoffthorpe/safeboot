@@ -41,7 +41,7 @@ set -e
 # NB: because the user accounts (DB_USER and FLASK_USER) are created by
 # Dockerfile, those values _are_ baked into the container images and get
 # propogated into the initial (root) environment by "ENV" commands in the
-# Dockerfile. ENROLLSVC_STATE_PREFIX, on the other hand, is specified at
+# Dockerfile. HCP_ENROLLSVC_STATE_PREFIX, on the other hand, is specified at
 # "docker run" time. This file treats them all the same way, but it's worth
 # knowing.
 
@@ -53,8 +53,8 @@ if [[ `whoami` != "root" ]]; then
 	fi
 fi
 
-if [[ -z "$ENROLLSVC_STATE_PREFIX" || ! -d "$ENROLLSVC_STATE_PREFIX" ]]; then
-	echo "Error, ENROLLSVC_STATE_PREFIX (\"$ENROLLSVC_STATE_PREFIX\") is not a valid path" >&2
+if [[ -z "$HCP_ENROLLSVC_STATE_PREFIX" || ! -d "$HCP_ENROLLSVC_STATE_PREFIX" ]]; then
+	echo "Error, HCP_ENROLLSVC_STATE_PREFIX (\"$HCP_ENROLLSVC_STATE_PREFIX\") is not a valid path" >&2
 	exit 1
 fi
 if [[ -z "$DB_USER" || ! -d "/home/$DB_USER" ]]; then
@@ -92,13 +92,13 @@ if [[ `whoami` == "root" ]]; then
 	echo "# always get known-good values, especially via sudo!" >> /etc/environment
 	echo "DB_USER=$DB_USER" >> /etc/environment
 	echo "FLASK_USER=$FLASK_USER" >> /etc/environment
-	echo "ENROLLSVC_STATE_PREFIX=$ENROLLSVC_STATE_PREFIX" >> /etc/environment
+	echo "HCP_ENROLLSVC_STATE_PREFIX=$HCP_ENROLLSVC_STATE_PREFIX" >> /etc/environment
 	echo "HCP_ENVIRONMENT_SET=1" >> /etc/environment
 fi
 
 # Print the base configuration
 echo "Running '$0'" >&2
-echo "  ENROLLSVC_STATE_PREFIX=$ENROLLSVC_STATE_PREFIX" >&2
+echo "  HCP_ENROLLSVC_STATE_PREFIX=$HCP_ENROLLSVC_STATE_PREFIX" >&2
 echo "                 DB_USER=$DB_USER" >&2
 echo "              FLASK_USER=$FLASK_USER" >&2
 echo "             DB_IN_SETUP=$DB_IN_SETUP" >&2
@@ -106,9 +106,9 @@ echo "             DB_IN_SETUP=$DB_IN_SETUP" >&2
 # Derive more configuration using these constants
 REPO_NAME=enrolldb.git
 EK_BASENAME=ekpubhash
-REPO_PATH=$ENROLLSVC_STATE_PREFIX/$REPO_NAME
+REPO_PATH=$HCP_ENROLLSVC_STATE_PREFIX/$REPO_NAME
 EK_PATH=$REPO_PATH/$EK_BASENAME
-REPO_LOCKPATH=$ENROLLSVC_STATE_PREFIX/lock-$REPO_NAME
+REPO_LOCKPATH=$HCP_ENROLLSVC_STATE_PREFIX/lock-$REPO_NAME
 
 # Print the additional configuration
 echo "               REPO_NAME=$REPO_NAME" >&2

@@ -144,7 +144,7 @@ clean_hcp_base: clean_hcp_enrollsvc
 # specify the per-instance details.
 
 # Both the enrollsvc containers mount the same state, which they expect to be
-# at a path set by ENROLLSVC_STATE_PREFIX.
+# at a path set by HCP_ENROLLSVC_STATE_PREFIX.
 # -mgmt mounts readwrite, -repl mounts readonly.
 HCP_ENROLLSVC_STATE := $(HCP_ENROLLSVC_OUT)/run
 HCP_ENROLLSVC_STATE_PREFIX := /enrollsvc
@@ -208,7 +208,7 @@ endif
 	$Qmkdir $(HCP_ENROLLSVC_STATE)
 	$Qdocker run -i --rm \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX) \
-		--env ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
+		--env HCP_ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
 		--hostname $(HCP_ENROLLSVC_MGMT_HOSTNAME) \
@@ -273,7 +273,7 @@ $(HCP_ENROLLSVC_OUT)/mgmt.run.started:
 	$Qdocker run -d \
 		--cidfile=$(HCP_ENROLLSVC_OUT)/mgmt.run.cid \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX):rw \
-		--env ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
+		--env HCP_ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		-v $(HCP_ENROLLSVC_MSGBUS):$(HCP_ENROLLSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt \
@@ -336,7 +336,7 @@ $(HCP_ENROLLSVC_OUT)/repl.run.started:
 	$Qdocker run -d \
 		--cidfile=$(HCP_ENROLLSVC_OUT)/repl.run.cid \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX):ro \
-		--env ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
+		--env HCP_ENROLLSVC_STATE_PREFIX="$(HCP_ENROLLSVC_STATE_PREFIX)" \
 		-v $(HCP_ENROLLSVC_MSGBUS):$(HCP_ENROLLSVC_MSGBUS_PREFIX) \
 		--network $(HCP_TESTNETWORK_NAME) \
 		--name $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl \

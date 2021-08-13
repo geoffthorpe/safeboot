@@ -4,7 +4,7 @@
 
 expect_hcp_user
 
-BACKOFF_TIMER=$(($ATTESTSVC_UPDATE_TIMER * 5))
+BACKOFF_TIMER=$(($HCP_ATTESTSVC_UPDATE_TIMER * 5))
 
 function datetime_log {
 	d=`date +"%Y%m%d-%H%M%S"`
@@ -19,7 +19,7 @@ function datetime_log {
 # vanishes for a while, so we can't let bash abort the script due to an error
 # in git-fetch.
 #
-# On the other hand if something like "cd $ATTESTSVC_STATE_PREFIX", "cd next",
+# On the other hand if something like "cd $HCP_ATTESTSVC_STATE_PREFIX", "cd next",
 # or "datetime_log" fails, then the appropriate thing _is_ for bash to kill the
 # script and attract the attention of someone to come and investigate.
 # (Rationale: in such cases, trying to recover or even endure just adds
@@ -27,16 +27,16 @@ function datetime_log {
 # "bury the lede" when someone sifts through the wreckage later trying to
 # figure out what happened.)
 while /bin/true; do
-	cd $ATTESTSVC_STATE_PREFIX
+	cd $HCP_ATTESTSVC_STATE_PREFIX
 	cd next
 	datetime_log "updating"
 	if (git fetch origin && git merge origin/master); then
-		cd $ATTESTSVC_STATE_PREFIX
+		cd $HCP_ATTESTSVC_STATE_PREFIX
 		cp -P current thirdwheel
 		cp -T -P next current
 		mv -T thirdwheel next
-		datetime_log "sleeping for $ATTESTSVC_UPDATE_TIMER seconds"
-		sleep $ATTESTSVC_UPDATE_TIMER
+		datetime_log "sleeping for $HCP_ATTESTSVC_UPDATE_TIMER seconds"
+		sleep $HCP_ATTESTSVC_UPDATE_TIMER
 	else
 		# TODO: we should alert that the fetch/merge failed. Such
 		# failures would (likely) point to a problem with the db we're

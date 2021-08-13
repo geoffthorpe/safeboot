@@ -4,13 +4,13 @@ set -e
 
 # Print the base configuration
 echo "Running '$0'" >&2
-echo "      CLIENT_ATTEST_URL=$CLIENT_ATTEST_URL" >&2
+echo "      HCP_CLIENT_ATTEST_URL=$HCP_CLIENT_ATTEST_URL" >&2
 echo "         TPM2TOOLS_TCTI=$TPM2TOOLS_TCTI" >&2
 echo "                 MSGBUS=$MSGBUS" >&2
 echo "          MSGBUS_PREFIX=$MSGBUS_PREFIX" >&2
 
-if [[ -z "$CLIENT_ATTEST_URL" ]]; then
-	echo "Error, CLIENT_ATTEST_URL (\"$CLIENT_ATTEST_URL\") is not set" >&2
+if [[ -z "$HCP_CLIENT_ATTEST_URL" ]]; then
+	echo "Error, HCP_CLIENT_ATTEST_URL (\"$HCP_CLIENT_ATTEST_URL\") is not set" >&2
 	exit 1
 fi
 if [[ -z "$TPM2TOOLS_TCTI" ]]; then
@@ -54,7 +54,7 @@ cd $DIR
 
 # passed in from "docker run" cmd-line
 export TPM2TOOLS_TCTI
-export CLIENT_ATTEST_URL
+export HCP_CLIENT_ATTEST_URL
 
 echo "Running 'client'"
 
@@ -84,7 +84,7 @@ while true
 do
 	echo "Trying an attestation, output at $MSGBUS/attestation.$counter"
 	unset itfailed
-	./sbin/tpm2-attest attest $CLIENT_ATTEST_URL > secrets \
+	./sbin/tpm2-attest attest $HCP_CLIENT_ATTEST_URL > secrets \
 		2> $MSGBUS_PREFIX/attestation.$counter || itfailed=1
 	if [[ -z "$itfailed" ]]; then
 		echo "Success!"

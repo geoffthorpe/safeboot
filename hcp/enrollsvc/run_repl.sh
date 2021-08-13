@@ -21,7 +21,7 @@ echo "Running 'enrollsvc-repl' service (git-daemon)"
 (drop_privs_db /usr/lib/git-core/git-daemon \
 	--reuseaddr --verbose \
 	--listen=0.0.0.0 \
-	--base-path=$ENROLLSVC_STATE_PREFIX \
+	--base-path=$HCP_ENROLLSVC_STATE_PREFIX \
 	$REPO_PATH) &
 THEPID=$!
 disown %

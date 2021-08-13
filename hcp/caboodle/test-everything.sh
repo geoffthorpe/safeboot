@@ -3,19 +3,19 @@
 set -e
 
 # HCP Enrollment Service.
-if [[ ! -d $ENROLLSVC_STATE_PREFIX/enrolldb.git ]]; then
+if [[ ! -d $HCP_ENROLLSVC_STATE_PREFIX/enrolldb.git ]]; then
 	/hcp/enrollsvc/setup_enrolldb.sh
 fi
 /hcp/enrollsvc/run_mgmt.sh &
 /hcp/enrollsvc/run_repl.sh &
 
-if [[ ! -d $ATTESTSVC_STATE_PREFIX/A ]]; then
+if [[ ! -d $HCP_ATTESTSVC_STATE_PREFIX/A ]]; then
 	/hcp/attestsvc/setup_repl.sh
 fi
 /hcp/attestsvc/run_repl.sh &
 /hcp/attestsvc/run_hcp.sh &
 
-if [[ ! -d $SWTPMSVC_STATE_PREFIX/ek.pub ]]; then
+if [[ ! -d $HCP_SWTPMSVC_STATE_PREFIX/ek.pub ]]; then
 	/hcp/swtpmsvc/setup_swtpm.sh
 fi
 /hcp/swtpmsvc/run_swtpm.sh &

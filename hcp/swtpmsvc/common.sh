@@ -4,15 +4,15 @@ set -e
 
 # Print the base configuration
 echo "Running '$0'" >&2
-echo "    SWTPMSVC_STATE_PREFIX=$SWTPMSVC_STATE_PREFIX" >&2
-echo " SWTPMSVC_ENROLL_HOSTNAME=$SWTPMSVC_ENROLL_HOSTNAME" >&2
+echo "    HCP_SWTPMSVC_STATE_PREFIX=$HCP_SWTPMSVC_STATE_PREFIX" >&2
+echo " HCP_SWTPMSVC_ENROLL_HOSTNAME=$HCP_SWTPMSVC_ENROLL_HOSTNAME" >&2
 
-if [[ -z "$SWTPMSVC_STATE_PREFIX" || ! -d "$SWTPMSVC_STATE_PREFIX" ]]; then
-	echo "Error, SWTPMSVC_STATE_PREFIX (\"$SWTPMSVC_STATE_PREFIX\") is not a valid path" >&2
+if [[ -z "$HCP_SWTPMSVC_STATE_PREFIX" || ! -d "$HCP_SWTPMSVC_STATE_PREFIX" ]]; then
+	echo "Error, HCP_SWTPMSVC_STATE_PREFIX (\"$HCP_SWTPMSVC_STATE_PREFIX\") is not a valid path" >&2
 	exit 1
 fi
-if [[ -z "$SWTPMSVC_ENROLL_HOSTNAME" ]]; then
-	echo "Error, SWTPMSVC_ENROLL_HOSTNAME (\"$SWTPMSVC_ENROLL_HOSTNAME\") is not set" >&2
+if [[ -z "$HCP_SWTPMSVC_ENROLL_HOSTNAME" ]]; then
+	echo "Error, HCP_SWTPMSVC_ENROLL_HOSTNAME (\"$HCP_SWTPMSVC_ENROLL_HOSTNAME\") is not set" >&2
 	exit 1
 fi
 
@@ -37,4 +37,4 @@ if [[ -d "/install/lib" ]]; then
 	fi
 fi
 
-cd $SWTPMSVC_STATE_PREFIX
+cd $HCP_SWTPMSVC_STATE_PREFIX
