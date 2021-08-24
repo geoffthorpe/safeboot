@@ -17,7 +17,7 @@ clean_hcp_testnetwork:
 ifneq (,$(filter $(HCP_TESTNETWORK_NAME),$(HCP_EXISTING_NETWORKS)))
 	$Qdocker network rm $(HCP_TESTNETWORK_NAME)
 endif
-	$Qrm $(HCP_OUT)/testnetwork.created
+	$Qrm -f $(HCP_OUT)/testnetwork.created
 
 # Cleanup ordering
 clean_hcp: clean_hcp_testnetwork
