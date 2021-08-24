@@ -56,8 +56,7 @@ $(HCP_SCRIPTS_OUT)/safeboot.tar.gz:
 	$Qtar zcf $(HCP_SCRIPTS_OUT)/safeboot.tar.gz \
 		--owner root:0 --group root:0 -C $(HCP_SCRIPTS_OUT) safeboot
 $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz
-	$Qecho "COPY safeboot.tar.gz /" > $@
-	$Qecho "RUN cd / && tar zxf safeboot.tar.gz && rm safeboot.tar.gz" >> $@
+	$Qecho "$(call tarball_extract,safeboot)" > $@
 
 ################################
 # HCP scripts - hcp-<x>.tar.gz #
@@ -86,8 +85,7 @@ $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz:
 	$Qtar zcf $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz \
 		--owner root:0 --group root:0 -C $(HCP_SCRIPTS_OUT) hcp/tail_wait.pl
 $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz
-	$Qecho "COPY hcp-common.tar.gz /" > $@
-	$Qecho "RUN cd / && tar zxf hcp-common.tar.gz && rm hcp-common.tar.gz" >> $@
+	$Qecho "$(call tarball_extract,hcp-common)" > $@
 
 # /hcp/enrollsvc
 HCP_SCRIPTS_HCP_ENROLLSVC_FILES = $(shell ls -1 $(TOP)/hcp/enrollsvc | \
@@ -102,8 +100,7 @@ $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz:
 	$Qtar zcf $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz \
 		--owner root:0 --group root:0 -C $(HCP_SCRIPTS_OUT) hcp/enrollsvc
 $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz.inject: $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz
-	$Qecho "COPY hcp-enrollsvc.tar.gz /" > $@
-	$Qecho "RUN cd / && tar zxf hcp-enrollsvc.tar.gz && rm hcp-enrollsvc.tar.gz" >> $@
+	$Qecho "$(call tarball_extract,hcp-enrollsvc)" > $@
 
 # files for /hcp/attestsvc
 HCP_SCRIPTS_HCP_ATTESTSVC_FILES = $(shell ls -1 $(TOP)/hcp/attestsvc | \
@@ -118,8 +115,7 @@ $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz:
 	$Qtar zcf $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz \
 		--owner root:0 --group root:0 -C $(HCP_SCRIPTS_OUT) hcp/attestsvc
 $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject: $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz
-	$Qecho "COPY hcp-attestsvc.tar.gz /" > $@
-	$Qecho "RUN cd / && tar zxf hcp-attestsvc.tar.gz && rm hcp-attestsvc.tar.gz" >> $@
+	$Qecho "$(call tarball_extract,hcp-attestsvc)" > $@
 
 # files for /hcp/swtpmsvc
 HCP_SCRIPTS_HCP_SWTPMSVC_FILES = $(shell ls -1 $(TOP)/hcp/swtpmsvc | \
@@ -134,8 +130,7 @@ $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz:
 	$Qtar zcf $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz \
 		--owner root:0 --group root:0 -C $(HCP_SCRIPTS_OUT) hcp/swtpmsvc
 $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz.inject: $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz
-	$Qecho "COPY hcp-swtpmsvc.tar.gz /" > $@
-	$Qecho "RUN cd / && tar zxf hcp-swtpmsvc.tar.gz && rm hcp-swtpmsvc.tar.gz" >> $@
+	$Qecho "$(call tarball_extract,hcp-swtpmsvc)" > $@
 
 # files for /hcp/client
 HCP_SCRIPTS_HCP_CLIENT_FILES = $(shell ls -1 $(TOP)/hcp/client | \
@@ -150,8 +145,7 @@ $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz:
 	$Qtar zcf $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz \
 		--owner root:0 --group root:0 -C $(HCP_SCRIPTS_OUT) hcp/client
 $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz
-	$Qecho "COPY hcp-client.tar.gz /" > $@
-	$Qecho "RUN cd / && tar zxf hcp-client.tar.gz && rm hcp-client.tar.gz" >> $@
+	$Qecho "$(call tarball_extract,hcp-client)" > $@
 
 
 ###################

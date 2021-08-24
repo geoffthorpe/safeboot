@@ -48,6 +48,7 @@ $(HCP_SWTPMSVC_OUT)/Dockerfile:
 	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz.inject >> $@
+	$Qecho "$(call tarball_finalize)" >> $@
 
 # "docker build" to create the container image (recipe only)
 $(HCP_SWTPMSVC_OUT)/built: $(HCP_SWTPMSVC_OUT)/Dockerfile

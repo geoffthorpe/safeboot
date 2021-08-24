@@ -105,6 +105,7 @@ $(HCP_ENROLLSVC_OUT)/Dockerfile:
 	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz.inject >> $@
+	$Qecho "$(call tarball_finalize)" >> $@
 
 # "docker build" to create the container image (recipe only)
 $(HCP_ENROLLSVC_OUT)/built: $(HCP_ENROLLSVC_OUT)/Dockerfile

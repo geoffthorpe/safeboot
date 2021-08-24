@@ -98,6 +98,7 @@ $(HCP_CABOODLE_OUT)/Dockerfile:
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject >> $@
+	$Qecho "$(call tarball_finalize)" >> $@
 	$Qcat $(HCP_CABOODLE_SRC)/Dockerfile >> $@
 
 # From enrollsvc/Makefile;
