@@ -202,7 +202,7 @@ ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_4platform,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_4platform
 endif
 	$Qrm -f $(HCP_BASE_OUT)/4platform.*
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)3add-cacerts,$(HCP_EXISTING_IMAGES)))
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts,$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts
 endif
 	$Qrm -f $(HCP_BASE_OUT)/3add-cacerts.*
