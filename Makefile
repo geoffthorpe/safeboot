@@ -278,6 +278,8 @@ requirements: | build
 		bison \
 		libelf-dev \
 		libjson-glib-dev \
+		python3-flask \
+		uwsgi-plugin-python3 \
 
 
 # Remove the temporary files and build stuff
