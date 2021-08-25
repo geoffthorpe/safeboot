@@ -99,6 +99,9 @@ ifeq (yes,$(shell test -d $(HCP_SWTPMSVC_STATE) > /dev/null 2>&1 && echo yes))
 HCP_SWTPMSVC_INITIALIZED := 1
 endif
 ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)swtpmsvc,$(HCP_EXISTING_CONTAINERS)))
+HCP_SWTPMSVC_STARTED := 1
+endif
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)swtpmsvc,$(HCP_RUNNING_CONTAINERS)))
 HCP_SWTPMSVC_RUNNING := 1
 endif
 
@@ -115,7 +118,7 @@ endif
 $(HCP_SWTPMSVC_OUT)/run.initialized: | $(HCP_OUT)/testnetwork.created
 $(HCP_SWTPMSVC_OUT)/run.initialized: | $(HCP_ENROLLSVC_OUT)/mgmt.run.started
 $(HCP_SWTPMSVC_OUT)/run.initialized:
-ifdef HCP_SWTPMSVC_RUNNING
+ifdef HCP_SWTPMSVC_STARTED
 	$Qecho "Can't (re)initialize 'swtpmsvc' state while it is running."
 	$Qecho "Do 'make hcp_swtpmsvc_run_stop' to stop it."
 	$Qexit 1
@@ -150,13 +153,13 @@ endif
 hcp_swtpmsvc_run_init: $(HCP_SWTPMSVC_OUT)/run.initialized
 
 # "rm -rf swtpmsvc" to remove one-time initialization (interface and recipe)
-ifdef HCP_SWTPMSVC_RUNNING
+ifdef HCP_SWTPMSVC_STARTED
 ifdef FORCE
 clean_hcp_swtpmsvc_run: hcp_swtpmsvc_run_stop
 endif
 endif
 clean_hcp_swtpmsvc_run:
-ifdef HCP_SWTPMSVC_RUNNING
+ifdef HCP_SWTPMSVC_STARTED
 ifndef FORCE
 	$Qecho "Error, the service appears to be running. Stop it before cleaning."
 	$Qecho "(Or set FORCE=1 and I'll automatically stop it for you.)"
@@ -177,7 +180,7 @@ endif
 ##############
 
 # "docker run [] run_swtpm.sh", to start the service (recipe only)
-ifndef HCP_SWTPMSVC_RUNNING
+ifndef HCP_SWTPMSVC_STARTED
 $(HCP_SWTPMSVC_OUT)/run.started: | $(HCP_OUT)/testnetwork.created
 $(HCP_SWTPMSVC_OUT)/run.started: $(HCP_SWTPMSVC_OUT)/run.initialized
 $(HCP_SWTPMSVC_OUT)/run.started:
@@ -185,7 +188,7 @@ $(HCP_SWTPMSVC_OUT)/run.started:
 	$Qrm -f $(HCP_SWTPMSVC_MSGBUS)/swtpmsvc*
 	$Qrm -f $(HCP_SWTPMSVC_OUT)/run.cid
 	$Qrm -f $(HCP_SWTPMSVC_OUT)/run.lastExitCode
-	$Qrm -f $(HCP_SWTPMSVC_OUT)/run.signaled
+	$Qecho "Starting 'swtpmsvc'..."
 	$Qdocker run -d \
 		--cidfile=$(HCP_SWTPMSVC_OUT)/run.cid \
 		-v $(HCP_SWTPMSVC_STATE):$(HCP_SWTPMSVC_STATE_PREFIX):rw \
@@ -201,39 +204,36 @@ $(HCP_SWTPMSVC_OUT)/run.started:
 		--label $(SAFEBOOT_HCP_DSPACE)swtpmsvc_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)swtpmsvc \
 		/hcp/swtpmsvc/run_swtpm.sh
+	$Q$(TAIL_WAIT) $(HCP_SWTPMSVC_MSGBUS)/swtpmsvc \
+		"Running 'swtpmsvc' service"
+	$Qsleep 1
 	$Qecho "Done starting 'swtpmsvc'"
 	$Qecho "Output at; $(HCP_SWTPMSVC_MSGBUS)/swtpmsvc"
 	$Qtouch $@
 endif
-
-# "echo die > swtpmsvc-ctrl", signal service to exit (recipe only)
-ifdef HCP_SWTPMSVC_RUNNING
-$(HCP_SWTPMSVC_OUT)/run.signaled: $(HCP_SWTPMSVC_OUT)/run.started
-	$Qecho "Signaling 'swtpmsvc' to exit"
-	$Qecho "die" > $(HCP_SWTPMSVC_MSGBUS)/swtpmsvc-ctrl
-	$Qtouch $@
-endif
+# TODO: the above TAIL_WAIT is no good. Fix this once "swtpm socket" emits
+# something that can be relied on! This is why we have a "sleep 1" for now.
 
 # "docker run [] run_swtpm.sh", to start the service (interface only)
-ifndef HCP_SWTPMSVC_RUNNING
+ifndef HCP_SWTPMSVC_STARTED
 hcp_swtpmsvc_run_start: $(HCP_SWTPMSVC_OUT)/run.started
 endif
 hcp_swtpmsvc_run_start:
 
 # "docker {wait,rm}", to stop the service (interface and recipe)
 hcp_swtpmsvc_run_stop:
+ifdef HCP_SWTPMSVC_STARTED
 ifdef HCP_SWTPMSVC_RUNNING
+	$Qdocker container stop --time=0 `cat $(HCP_SWTPMSVC_OUT)/run.cid`
+else
+	$Qecho "swtpmsvc had already exited, was there a problem??"
+endif
 	$Qdocker container wait `cat $(HCP_SWTPMSVC_OUT)/run.cid` > \
 		$(HCP_SWTPMSVC_OUT)/run.lastExitCode
 	$Qdocker container rm `cat $(HCP_SWTPMSVC_OUT)/run.cid`
-	$Qtest `cat $(HCP_SWTPMSVC_OUT)/run.lastExitCode` -eq 0 && \
-		echo "swtpmsvc exited with SUCCESS" || \
-		echo "swtpmsvc exited with FAILURE!! (probably long ago)"
 	$Qrm $(HCP_SWTPMSVC_OUT)/run.started
-	$Qrm $(HCP_SWTPMSVC_OUT)/run.signaled
 	$Qrm $(HCP_SWTPMSVC_OUT)/run.cid
 	$Qecho "Done stopping 'swtpmsvc'"
-hcp_swtpmsvc_run_stop: $(HCP_SWTPMSVC_OUT)/run.signaled
 endif
 
 ################

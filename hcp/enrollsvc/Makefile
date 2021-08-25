@@ -170,13 +170,19 @@ ifeq (yes,$(shell test -d $(HCP_ENROLLSVC_STATE) > /dev/null 2>&1 && echo yes))
 HCP_ENROLLSVC_INITIALIZED := 1
 endif
 ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl,$(HCP_EXISTING_CONTAINERS)))
+HCP_ENROLLSVC_REPL_STARTED := 1
+endif
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-repl,$(HCP_RUNNING_CONTAINERS)))
 HCP_ENROLLSVC_REPL_RUNNING := 1
 endif
 ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt,$(HCP_EXISTING_CONTAINERS)))
+HCP_ENROLLSVC_MGMT_STARTED := 1
+endif
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc-mgmt,$(HCP_RUNNING_CONTAINERS)))
 HCP_ENROLLSVC_MGMT_RUNNING := 1
 endif
-ifneq (,$(HCP_ENROLLSVC_MGMT_RUNNING)$(HCP_ENROLLSVC_REPL_RUNNING))
-HCP_ENROLLSVC_RUNNING := 1
+ifneq (,$(HCP_ENROLLSVC_MGMT_STARTED)$(HCP_ENROLLSVC_REPL_STARTED))
+HCP_ENROLLSVC_STARTED := 1
 endif
 
 #########################
@@ -191,7 +197,7 @@ $(HCP_ENROLLSVC_OUT)/run.initialized: $(HCP_ENROLLSVC_OUT)/built
 endif
 $(HCP_ENROLLSVC_OUT)/run.initialized: | $(HCP_OUT)/testnetwork.created
 $(HCP_ENROLLSVC_OUT)/run.initialized:
-ifdef HCP_ENROLLSVC_RUNNING
+ifdef HCP_ENROLLSVC_STARTED
 	$Qecho "Can't (re)initialize 'enrollsvc' state while it is running."
 	$Qecho "Do 'make hcp_enrollsvc_run_stop' to stop it."
 	$Qexit 1
@@ -224,13 +230,13 @@ endif
 hcp_enrollsvc_run_init: $(HCP_ENROLLSVC_OUT)/run.initialized
 
 # "rm -rf enrolldb" to remove one-time initialization (interface and recipe)
-ifdef HCP_ENROLLSVC_RUNNING
+ifdef HCP_ENROLLSVC_STARTED
 ifdef FORCE
 clean_hcp_enrollsvc_run: hcp_enrollsvc_run_stop
 endif
 endif
 clean_hcp_enrollsvc_run:
-ifdef HCP_ENROLLSVC_RUNNING
+ifdef HCP_ENROLLSVC_STARTED
 ifndef FORCE
 	$Qecho "Error, the service appears to be running. Stop it before cleaning."
 	$Qecho "(Or set FORCE=1 and I'll automatically stop it for you.)"
@@ -262,7 +268,7 @@ hcp_enrollsvc_run_stop: hcp_enrollsvc-repl_run_stop
 ##################
 
 # "docker run [] run_mgmt.sh", to start the service (recipe only)
-ifndef HCP_ENROLLSVC_MGMT_RUNNING
+ifndef HCP_ENROLLSVC_MGMT_STARTED
 $(HCP_ENROLLSVC_OUT)/mgmt.run.started: | $(HCP_OUT)/testnetwork.created
 $(HCP_ENROLLSVC_OUT)/mgmt.run.started: $(HCP_ENROLLSVC_OUT)/run.initialized
 $(HCP_ENROLLSVC_OUT)/mgmt.run.started:
@@ -270,7 +276,7 @@ $(HCP_ENROLLSVC_OUT)/mgmt.run.started:
 	$Qrm -f $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-mgmt*
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.run.cid
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.run.lastExitCode
-	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.run.signaled
+	$Qecho "Starting 'enrollsvc-mgmt'..."
 	$Qdocker run -d \
 		--cidfile=$(HCP_ENROLLSVC_OUT)/mgmt.run.cid \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX):rw \
@@ -285,39 +291,33 @@ $(HCP_ENROLLSVC_OUT)/mgmt.run.started:
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_mgmt_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)enrollsvc \
 		/hcp/enrollsvc/run_mgmt.sh
+	$Q$(TAIL_WAIT) $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-mgmt \
+		"^ \* Running on http"
 	$Qecho "Done starting 'enrollsvc-mgmt'"
 	$Qecho "Output at; $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-mgmt"
 	$Qtouch $@
 endif
 
-# "echo die > enrollsvc-mgmt-ctrl", signal service to exit (recipe only)
-ifdef HCP_ENROLLSVC_MGMT_RUNNING
-$(HCP_ENROLLSVC_OUT)/mgmt.run.signaled: $(HCP_ENROLLSVC_OUT)/mgmt.run.started
-	$Qecho "Signaling 'enrollsvc-mgmt' to exit"
-	$Qecho "die" > $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-mgmt-ctrl
-	$Qtouch $@
-endif
-
 # "docker run [] run_mgmt.sh", to start the service (interface only)
-ifndef HCP_ENROLLSVC_MGMT_RUNNING
+ifndef HCP_ENROLLSVC_MGMT_STARTED
 hcp_enrollsvc-mgmt_run_start: $(HCP_ENROLLSVC_OUT)/mgmt.run.started
 endif
 hcp_enrollsvc-mgmt_run_start:
 
 # "docker {wait,rm}", to stop the service (interface and recipe)
 hcp_enrollsvc-mgmt_run_stop:
+ifdef HCP_ENROLLSVC_MGMT_STARTED
 ifdef HCP_ENROLLSVC_MGMT_RUNNING
+	$Qdocker container stop --time=0 `cat $(HCP_ENROLLSVC_OUT)/mgmt.run.cid`
+else
+	$Qecho "enrollsvc-mgmt had already exited, was there a problem??"
+endif
 	$Qdocker container wait `cat $(HCP_ENROLLSVC_OUT)/mgmt.run.cid` > \
 		$(HCP_ENROLLSVC_OUT)/mgmt.run.lastExitCode
 	$Qdocker container rm `cat $(HCP_ENROLLSVC_OUT)/mgmt.run.cid`
-	$Qtest `cat $(HCP_ENROLLSVC_OUT)/mgmt.run.lastExitCode` -eq 0 && \
-		echo "enrollsvc-mgmt exited with SUCCESS" || \
-		echo "enrollsvc-mgmt exited with FAILURE!! (probably long ago)"
-	$Qrm $(HCP_ENROLLSVC_OUT)/mgmt.run.started
-	$Qrm $(HCP_ENROLLSVC_OUT)/mgmt.run.signaled
-	$Qrm $(HCP_ENROLLSVC_OUT)/mgmt.run.cid
+	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.run.started
+	$Qrm -f $(HCP_ENROLLSVC_OUT)/mgmt.run.cid
 	$Qecho "Done stopping 'enrollsvc-mgmt'"
-hcp_enrollsvc-mgmt_run_stop: $(HCP_ENROLLSVC_OUT)/mgmt.run.signaled
 endif
 
 ##################
@@ -325,7 +325,7 @@ endif
 ##################
 
 # "docker run [] run_repl.sh", to start the service (recipe only)
-ifndef HCP_ENROLLSVC_REPL_RUNNING
+ifndef HCP_ENROLLSVC_REPL_STARTED
 $(HCP_ENROLLSVC_OUT)/repl.run.started: | $(HCP_OUT)/testnetwork.created
 $(HCP_ENROLLSVC_OUT)/repl.run.started: $(HCP_ENROLLSVC_OUT)/run.initialized
 $(HCP_ENROLLSVC_OUT)/repl.run.started:
@@ -333,7 +333,7 @@ $(HCP_ENROLLSVC_OUT)/repl.run.started:
 	$Qrm -f $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-repl*
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.run.cid
 	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.run.lastExitCode
-	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.run.signaled
+	$Qecho "Starting 'enrollsvc-mgmt'..."
 	$Qdocker run -d \
 		--cidfile=$(HCP_ENROLLSVC_OUT)/repl.run.cid \
 		-v $(HCP_ENROLLSVC_STATE):$(HCP_ENROLLSVC_STATE_PREFIX):ro \
@@ -348,39 +348,33 @@ $(HCP_ENROLLSVC_OUT)/repl.run.started:
 		--label $(SAFEBOOT_HCP_DSPACE)enrollsvc_repl_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)enrollsvc \
 		/hcp/enrollsvc/run_repl.sh
+	$Q$(TAIL_WAIT) $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-repl \
+		"Ready to rumble"
 	$Qecho "Done starting 'enrollsvc-repl'"
 	$Qecho "Output at; $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-repl"
 	$Qtouch $@
 endif
 
-# "echo die > enrollsvc-repl-ctrl", signal service to exit (recipe only)
-ifdef HCP_ENROLLSVC_REPL_RUNNING
-$(HCP_ENROLLSVC_OUT)/repl.run.signaled: $(HCP_ENROLLSVC_OUT)/repl.run.started
-	$Qecho "Signaling 'enrollsvc-repl' to exit"
-	$Qecho "die" > $(HCP_ENROLLSVC_MSGBUS)/enrollsvc-repl-ctrl
-	$Qtouch $@
-endif
-
 # "docker run [] run_repl.sh", to start the service (interface only)
-ifndef HCP_ENROLLSVC_REPL_RUNNING
+ifndef HCP_ENROLLSVC_REPL_STARTED
 hcp_enrollsvc-repl_run_start: $(HCP_ENROLLSVC_OUT)/repl.run.started
 endif
 hcp_enrollsvc-repl_run_start:
 
 # "docker {wait,rm}", to stop the service (interface and recipe)
 hcp_enrollsvc-repl_run_stop:
+ifdef HCP_ENROLLSVC_REPL_STARTED
 ifdef HCP_ENROLLSVC_REPL_RUNNING
+	$Qdocker container stop --time=0 `cat $(HCP_ENROLLSVC_OUT)/repl.run.cid`
+else
+	$Qecho "enrollsvc-repl had already exited, was there a problem??"
+endif
 	$Qdocker container wait `cat $(HCP_ENROLLSVC_OUT)/repl.run.cid` > \
 		$(HCP_ENROLLSVC_OUT)/repl.run.lastExitCode
 	$Qdocker container rm `cat $(HCP_ENROLLSVC_OUT)/repl.run.cid`
-	$Qtest `cat $(HCP_ENROLLSVC_OUT)/repl.run.lastExitCode` -eq 0 && \
-		echo "enrollsvc-repl exited with SUCCESS" || \
-		echo "enrollsvc-repl exited with FAILURE!! (probably long ago)"
-	$Qrm $(HCP_ENROLLSVC_OUT)/repl.run.started
-	$Qrm $(HCP_ENROLLSVC_OUT)/repl.run.signaled
-	$Qrm $(HCP_ENROLLSVC_OUT)/repl.run.cid
+	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.run.started
+	$Qrm -f $(HCP_ENROLLSVC_OUT)/repl.run.cid
 	$Qecho "Done stopping 'enrollsvc-repl'"
-hcp_enrollsvc-repl_run_stop: $(HCP_ENROLLSVC_OUT)/repl.run.signaled
 endif
 
 ################

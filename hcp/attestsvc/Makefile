@@ -161,13 +161,19 @@ ifeq (yes,$(shell test -d $(HCP_ATTESTSVC_STATE) > /dev/null 2>&1 && echo yes))
 HCP_ATTESTSVC_INITIALIZED := 1
 endif
 ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp,$(HCP_EXISTING_CONTAINERS)))
+HCP_ATTESTSVC_HCP_STARTED := 1
+endif
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-hcp,$(HCP_RUNNING_CONTAINERS)))
 HCP_ATTESTSVC_HCP_RUNNING := 1
 endif
 ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-repl,$(HCP_EXISTING_CONTAINERS)))
+HCP_ATTESTSVC_REPL_STARTED := 1
+endif
+ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc-repl,$(HCP_RUNNING_CONTAINERS)))
 HCP_ATTESTSVC_REPL_RUNNING := 1
 endif
-ifneq (,$(HCP_ATTESTSVC_REPL_RUNNING)$(HCP_ATTESTSVC_HCP_RUNNING))
-HCP_ATTESTSVC_RUNNING := 1
+ifneq (,$(HCP_ATTESTSVC_REPL_STARTED)$(HCP_ATTESTSVC_HCP_STARTED))
+HCP_ATTESTSVC_STARTED := 1
 endif
 
 #########################
@@ -183,7 +189,7 @@ endif
 $(HCP_ATTESTSVC_OUT)/run.initialized: | $(HCP_OUT)/testnetwork.created
 $(HCP_ATTESTSVC_OUT)/run.initialized: | $(HCP_ENROLLSVC_OUT)/repl.run.started
 $(HCP_ATTESTSVC_OUT)/run.initialized:
-ifdef HCP_ATTESTSVC_RUNNING
+ifdef HCP_ATTESTSVC_STARTED
 	$Qecho "Can't (re)initialize 'attestsvc' state while it is running."
 	$Qecho "Do 'make hcp_attestsvc_run_stop' to stop it."
 	$Qexit 1
@@ -218,13 +224,13 @@ endif
 hcp_attestsvc_run_init: $(HCP_ATTESTSVC_OUT)/run.initialized
 
 # "rm -rf attestdb" to remove one-time initialization (interface and recipe)
-ifdef HCP_ATTESTSVC_RUNNING
+ifdef HCP_ATTESTSVC_STARTED
 ifdef FORCE
 clean_hcp_attestsvc_run: hcp_attestsvc_run_stop
 endif
 endif
 clean_hcp_attestsvc_run:
-ifdef HCP_ATTESTSVC_RUNNING
+ifdef HCP_ATTESTSVC_STARTED
 ifndef FORCE
 	$Qecho "Error, the service appears to be running. Stop it before cleaning."
 	$Qecho "(Or set FORCE=1 and I'll automatically stop it for you.)"
@@ -256,7 +262,7 @@ hcp_attestsvc_run_stop: hcp_attestsvc-hcp_run_stop
 ##################
 
 # "docker run [] run_repl.sh", to start the service (recipe only)
-ifndef HCP_ATTESTSVC_REPL_RUNNING
+ifndef HCP_ATTESTSVC_REPL_STARTED
 $(HCP_ATTESTSVC_OUT)/repl.run.started: | $(HCP_OUT)/testnetwork.created
 $(HCP_ATTESTSVC_OUT)/repl.run.started: $(HCP_ATTESTSVC_OUT)/run.initialized
 $(HCP_ATTESTSVC_OUT)/repl.run.started:
@@ -264,7 +270,7 @@ $(HCP_ATTESTSVC_OUT)/repl.run.started:
 	$Qrm -f $(HCP_ATTESTSVC_MSGBUS)/attestsvc-repl*
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.run.cid
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.run.lastExitCode
-	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.run.signaled
+	$Qecho "Starting 'attestsvc-repl'..."
 	$Qdocker run -d \
 		--cidfile=$(HCP_ATTESTSVC_OUT)/repl.run.cid \
 		-v $(HCP_ATTESTSVC_STATE):$(HCP_ATTESTSVC_STATE_PREFIX):rw \
@@ -285,34 +291,26 @@ $(HCP_ATTESTSVC_OUT)/repl.run.started:
 	$Qtouch $@
 endif
 
-# "echo die > attestsvc-repl-ctrl", signal service to exit (recipe only)
-ifdef HCP_ATTESTSVC_REPL_RUNNING
-$(HCP_ATTESTSVC_OUT)/repl.run.signaled: $(HCP_ATTESTSVC_OUT)/repl.run.started
-	$Qecho "Signaling 'attestsvc-repl' to exit"
-	$Qecho "die" > $(HCP_ATTESTSVC_MSGBUS)/attestsvc-repl-ctrl
-	$Qtouch $@
-endif
-
 # "docker run [] run_repl.sh", to start the service (interface only)
-ifndef HCP_ATTESTSVC_REPL_RUNNING
+ifndef HCP_ATTESTSVC_REPL_STARTED
 hcp_attestsvc-repl_run_start: $(HCP_ATTESTSVC_OUT)/repl.run.started
 endif
 hcp_attestsvc-repl_run_start:
 
 # "docker {wait,rm}", to stop the service (interface and recipe)
 hcp_attestsvc-repl_run_stop:
+ifdef HCP_ATTESTSVC_REPL_STARTED
 ifdef HCP_ATTESTSVC_REPL_RUNNING
+	$Qdocker container stop --time=0 `cat $(HCP_ATTESTSVC_OUT)/repl.run.cid`
+else
+	$Qecho "attestsvc-repl had already exited, was there a problem??"
+endif
 	$Qdocker container wait `cat $(HCP_ATTESTSVC_OUT)/repl.run.cid` > \
 		$(HCP_ATTESTSVC_OUT)/repl.run.lastExitCode
 	$Qdocker container rm `cat $(HCP_ATTESTSVC_OUT)/repl.run.cid`
-	$Qtest `cat $(HCP_ATTESTSVC_OUT)/repl.run.lastExitCode` -eq 0 && \
-		echo "attestsvc-repl exited with SUCCESS" || \
-		echo "attestsvc-repl exited with FAILURE!! (probably long ago)"
-	$Qrm $(HCP_ATTESTSVC_OUT)/repl.run.started
-	$Qrm $(HCP_ATTESTSVC_OUT)/repl.run.signaled
-	$Qrm $(HCP_ATTESTSVC_OUT)/repl.run.cid
+	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.run.started
+	$Qrm -f $(HCP_ATTESTSVC_OUT)/repl.run.cid
 	$Qecho "Done stopping 'attestsvc-repl'"
-hcp_attestsvc-repl_run_stop: $(HCP_ATTESTSVC_OUT)/repl.run.signaled
 endif
 
 #################
@@ -320,7 +318,7 @@ endif
 #################
 
 # "docker run [] run_hcp.sh", to start the service (recipe only)
-ifndef HCP_ATTESTSVC_HCP_RUNNING
+ifndef HCP_ATTESTSVC_HCP_STARTED
 $(HCP_ATTESTSVC_OUT)/hcp.run.started: | $(HCP_OUT)/testnetwork.created
 $(HCP_ATTESTSVC_OUT)/hcp.run.started: $(HCP_ATTESTSVC_OUT)/run.initialized
 $(HCP_ATTESTSVC_OUT)/hcp.run.started:
@@ -328,7 +326,7 @@ $(HCP_ATTESTSVC_OUT)/hcp.run.started:
 	$Qrm -f $(HCP_ATTESTSVC_MSGBUS)/attestsvc-hcp*
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.run.cid
 	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.run.lastExitCode
-	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.run.signaled
+	$Qecho "Starting 'attestsvc-hcp'..."
 	$Qdocker run -d \
 		--cidfile=$(HCP_ATTESTSVC_OUT)/hcp.run.cid \
 		-v $(HCP_ATTESTSVC_STATE):$(HCP_ATTESTSVC_STATE_PREFIX):ro \
@@ -345,39 +343,36 @@ $(HCP_ATTESTSVC_OUT)/hcp.run.started:
 		--label $(SAFEBOOT_HCP_DSPACE)attestsvc_hcp_run=1 \
 		$(SAFEBOOT_HCP_DSPACE)attestsvc \
 		/hcp/attestsvc/run_hcp.sh
+	$Q$(TAIL_WAIT) $(HCP_ATTESTSVC_MSGBUS)/attestsvc-hcp \
+		"Starting attestation http"
+	$Qsleep 1
 	$Qecho "Done starting 'attestsvc-hcp'"
 	$Qecho "Output at; $(HCP_ATTESTSVC_MSGBUS)/attestsvc-hcp"
 	$Qtouch $@
 endif
-
-# "echo die > attestsvc-hcp-ctrl", signal service to exit (recipe only)
-ifdef HCP_ATTESTSVC_HCP_RUNNING
-$(HCP_ATTESTSVC_OUT)/hcp.run.signaled: $(HCP_ATTESTSVC_OUT)/hcp.run.started
-	$Qecho "Signaling 'attestsvc-hcp' to exit"
-	$Qecho "die" > $(HCP_ATTESTSVC_MSGBUS)/attestsvc-hcp-ctrl
-	$Qtouch $@
-endif
+# TODO: the above TAIL_WAIT for attestsvc-hcp is no good. Change once the
+# attest server is using flask. This is why we have a "sleep 1" for now.
 
 # "docker run [] run_hcp.sh", to start the service (interface only)
-ifndef HCP_ATTESTSVC_HCP_RUNNING
+ifndef HCP_ATTESTSVC_HCP_STARTED
 hcp_attestsvc-hcp_run_start: $(HCP_ATTESTSVC_OUT)/hcp.run.started
 endif
 hcp_attestsvc-hcp_run_start:
 
 # "docker {wait,rm}", to stop the service (interface and recipe)
 hcp_attestsvc-hcp_run_stop:
+ifdef HCP_ATTESTSVC_HCP_STARTED
 ifdef HCP_ATTESTSVC_HCP_RUNNING
+	$Qdocker container stop --time=0 `cat $(HCP_ATTESTSVC_OUT)/hcp.run.cid`
+else
+	$Qecho "attestsvc-hcp had already exited, was there a problem??"
+endif
 	$Qdocker container wait `cat $(HCP_ATTESTSVC_OUT)/hcp.run.cid` > \
 		$(HCP_ATTESTSVC_OUT)/hcp.run.lastExitCode
 	$Qdocker container rm `cat $(HCP_ATTESTSVC_OUT)/hcp.run.cid`
-	$Qtest `cat $(HCP_ATTESTSVC_OUT)/hcp.run.lastExitCode` -eq 0 && \
-		echo "attestsvc-hcp exited with SUCCESS" || \
-		echo "attestsvc-hcp exited with FAILURE!! (probably long ago)"
-	$Qrm $(HCP_ATTESTSVC_OUT)/hcp.run.started
-	$Qrm $(HCP_ATTESTSVC_OUT)/hcp.run.signaled
-	$Qrm $(HCP_ATTESTSVC_OUT)/hcp.run.cid
+	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.run.started
+	$Qrm -f $(HCP_ATTESTSVC_OUT)/hcp.run.cid
 	$Qecho "Done stopping 'attestsvc-hcp'"
-hcp_attestsvc-hcp_run_stop: $(HCP_ATTESTSVC_OUT)/hcp.run.signaled
 endif
 
 ################

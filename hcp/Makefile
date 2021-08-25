@@ -19,12 +19,18 @@ else
 ASSIST_CLEANUP=DISABLE_SUBMODULE_RESET=1 $(HCP_SRC)/assist_cleanup.sh
 endif
 
+# Utility script to allow synchronization based on logfile/stdout/stderr
+TAIL_WAIT=$(HCP_SRC)/tail_wait.pl
+
 # To allow for more efficient "clean" recipes, capture a listing of
 # already-built and already-running images.
 HCP_EXISTING_IMAGES := $(shell docker image ls \
 			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
 			--format "{{.Repository}}" 2> /dev/null)
-HCP_EXISTING_CONTAINERS := $(shell docker container ls \
+HCP_RUNNING_CONTAINERS := $(shell docker container ls \
+			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
+			--format "{{.Names}}" 2> /dev/null)
+HCP_EXISTING_CONTAINERS := $(shell docker container ls -a \
 			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
 			--format "{{.Names}}" 2> /dev/null)
 HCP_EXISTING_NETWORKS := $(shell docker network ls \

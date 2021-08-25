@@ -15,26 +15,7 @@ echo "Running 'swtpmsvc' service (for $HCP_SWTPMSVC_ENROLL_HOSTNAME)"
 
 # Start the software TPM
 
-# TODO: this crude "daemonize" logic has the standard race-condition, namely
-# that we might spawn the process and move forward too quickly, such that
-# something assumes our backgrounded service is ready before it actually is.
-# This could probably be fixed by dy doing a tail_wait on our own output to
-# pick up the telltale signs from the child process that the service is
-# genuinely listening and ready.
 swtpm socket --tpm2 --tpmstate dir=$HCP_SWTPMSVC_STATE_PREFIX \
 	--server type=tcp,bindaddr=0.0.0.0,port=$TPMPORT1 \
 	--ctrl type=tcp,bindaddr=0.0.0.0,port=$TPMPORT2 \
-	--flags startup-clear &
-TPMPID=$!
-disown %
-echo "TPM running (pid=$TPMPID)"
-
-# Wait for the command to tear down
-echo "Waiting for 'die' message on $MSGBUS_CTRL"
-/hcp/tail_wait.pl $MSGBUS_CTRL "die"
-echo "Got the 'die' message"
-rm $MSGBUS_CTRL
-
-# Kill the software TPM
-kill $TPMPID
-echo "TPM stopped, done"
+	--flags startup-clear
