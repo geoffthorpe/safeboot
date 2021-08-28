@@ -22,17 +22,11 @@ endif
 # Utility script to allow synchronization based on logfile/stdout/stderr
 TAIL_WAIT=$(HCP_SRC)/tail_wait.pl
 
-# To allow for more efficient "clean" recipes, capture a listing of
-# already-built and already-running images.
+# To generate rules in smarter ways, first capture lists of images and networks
+# that already exist.
 HCP_EXISTING_IMAGES := $(shell docker image ls \
 			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
 			--format "{{.Repository}}" 2> /dev/null)
-HCP_RUNNING_CONTAINERS := $(shell docker container ls \
-			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
-			--format "{{.Names}}" 2> /dev/null)
-HCP_EXISTING_CONTAINERS := $(shell docker container ls -a \
-			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
-			--format "{{.Names}}" 2> /dev/null)
 HCP_EXISTING_NETWORKS := $(shell docker network ls \
 			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
 			--format "{{.Name}}" 2> /dev/null)
@@ -113,19 +107,69 @@ include hcp/caboodle/Makefile
 # by dependency)
 hcp_buildall: hcp_enrollsvc hcp_attestsvc hcp_swtpmsvc hcp_client hcp_caboodle
 
+# The following (hcp/run) infrastructure/workflow is for automating the
+# initialization, starting, stopping, and testing of HCP tools. It is
+# engineered to be usable directly and independently, if the container images
+# are already built/available and you want to have nothing to do with source
+# code, build dependencies, etc. E.g. if a CI pipeline has already run the
+# build and the resulting container images have been pushed to a production
+# host, there is no source code and build tree on that host to deal with, so
+# this infrastructure provides rules for running what is there, for direct use
+# by admins and operators and/or via ansible or other tooling.
+# But _here_, we integrate that workflow with the rest of our development
+# workflow in order to provide a good developer (and CI) experience. So how
+# does that work?
+# - We set the required HCP_RUN_*** input variables using our build environment
+#   as a guide.
+# - We bind cleanup dependencies between the two workflows.
+# - We use the output HCP_RUN_*** properties to create dependencies between the
+#   service targets and (a) each other, and (b) the relevant build targets.
+HCP_RUN_TOP := $(HCP_OUT)/run
+$(HCP_RUN_TOP): | $(HCP_OUT)
+clean_hcp: clean_hcp_run
+HCP_RUN_ASSIST_CLEANUP := $(ASSIST_CLEANUP)
+HCP_RUN_DSPACE := $(SAFEBOOT_HCP_DSPACE)
+HCP_RUN_DNETWORKS := $(HCP_TESTNETWORK_NAME)
+HCP_RUN_UTIL_IMAGE := $(SAFEBOOT_HCP_BASE)
+include hcp/run/Makefile
+ifdef NO_REINIT
+HCP_REBUILD_DEP := |
+endif
+# Build dependencies for hcp/run targets
+$(HCP_RUN_enrollsvc_TGT_INIT): $(HCP_REBUILD_DEP) $(HCP_ENROLLSVC_OUT)/built
+$(HCP_RUN_attestsvc_TGT_INIT): $(HCP_REBUILD_DEP) $(HCP_ATTESTSVC_OUT)/built
+$(HCP_RUN_swtpmsvc_TGT_INIT): $(HCP_REBUILD_DEP) $(HCP_SWTPMSVC_OUT)/built
+$(HCP_RUN_client_TGT_START): $(HCP_REBUILD_DEP) $(HCP_CLIENT_OUT)/built
+$(HCP_RUN_caboodle_TGT_START): $(HCP_REBUILD_DEP) $(HCP_CABOODLE_OUT)/built
+# Docker network dependencies for hcp/run targets
+$(HCP_RUN_enrollsvc_TGT_INIT) $(HCP_RUN_enrollsvc_mgmt_TGT_START) $(HCP_RUN_enrollsvc_repl_TGT_START) \
+$(HCP_RUN_attestsvc_TGT_INIT) $(HCP_RUN_attestsvc_mgmt_TGT_START) $(HCP_RUN_attestsvc_repl_TGT_START) \
+$(HCP_RUN_swtpmsvc_TGT_INIT) $(HCP_RUN_swtpmsvc_mgmt_TGT_START) $(HCP_RUN_swtpmsvc_repl_TGT_START) \
+$(HCP_RUN_client_TGT_START) $(HCP_RUN_caboodle_TGT_START): \
+	| $(HCP_OUT)/testnetwork.created
+# Cleanup dependencies for hcp/run targets
+clean_hcp_enrollsvc: enrollsvc_clean
+clean_hcp_attestsvc: attestsvc_clean
+clean_hcp_swtpmsvc: swtpmsvc_clean
+clean_hcp_client: client_clean
+clean_hcp_caboodle: caboodle_clean
+# Inter-service dependencies;
+$(HCP_RUN_attestsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_repl_TGT_START)
+$(HCP_RUN_swtpmsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_mgmt_TGT_START)
+$(HCP_RUN_client_TGT_START): | $(HCP_RUN_swtpmsvc_TGT_START)
+$(HCP_RUN_client_TGT_START): | $(HCP_RUN_attestsvc_hcp_TGT_START)
+
 # Rule to run everything
-hcp_startall: hcp_enrollsvc_run_start hcp_attestsvc_run_start hcp_swtpmsvc_run_start hcp_client_run
-hcp_stopall: hcp_enrollsvc_run_stop hcp_attestsvc_run_stop hcp_swtpmsvc_run_stop
-hcp_runall: hcp_startall
+startall: enrollsvc_start attestsvc_start swtpmsvc_start client_start
+stopall: enrollsvc_stop attestsvc_stop swtpmsvc_stop
+runall: startall
 	$Qecho "Services started and client completed, tearing down"
-	$Q$(MAKE) hcp_stopall
-hcp_clearall: clean_hcp_enrollsvc_run clean_hcp_attestsvc_run clean_hcp_swtpmsvc_run
-hcp_clearall: clean_hcp_client_run clean_hcp_caboodle_run
+	$Q$(MAKE) stopall
+clearall: enrollsvc_clean attestsvc_clean swtpmsvc_clean
 
 # This target allows you to shell into a running container (using docker exec).
 # If CID is set, it attempts to shell into the container it identifies,
 # otherwise a listing of running containers is given.
-
 enter:
 ifeq (,$(CID))
 	$Qecho "To shell into a running container, select the desired container by setting CID to"

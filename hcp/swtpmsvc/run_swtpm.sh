@@ -2,14 +2,8 @@
 
 . /hcp/swtpmsvc/common.sh
 
-MSGBUS_OUT=/msgbus/swtpmsvc
-MSGBUS_CTRL=/msgbus/swtpmsvc-ctrl
 TPMPORT1=9876
 TPMPORT2=9877
-
-# Redirect stdout and stderr to our msgbus file
-exec 1> $MSGBUS_OUT
-exec 2>&1
 
 echo "Running 'swtpmsvc' service (for $HCP_SWTPMSVC_ENROLL_HOSTNAME)"
 

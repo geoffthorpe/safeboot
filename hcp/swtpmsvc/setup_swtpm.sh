@@ -28,8 +28,8 @@ disown %
 echo "Started temporary instance of swtpm"
 sleep 1
 
-# Now pressure it into creating the EK (and why doesn't "swtpm_setup
-# --createek" already do this?)
+# Now pressure it into creating the EK (and why didn't "swtpm_setup --createek"
+# already achieve this?)
 export TPM2TOOLS_TCTI=swtpm:host=localhost,port=19283
 tpm2 createek -c $HCP_SWTPMSVC_STATE_PREFIX/ek.ctx -u $HCP_SWTPMSVC_STATE_PREFIX/ek.pub
 echo "Software TPM state created;"
@@ -37,13 +37,16 @@ tpm2 print -t TPM2B_PUBLIC $HCP_SWTPMSVC_STATE_PREFIX/ek.pub
 kill $THEPID
 
 # Now, enroll this TPM/host combination with the enrollment service.  The
-# enroll.py script hits the API endpoint specified by $HCP_SWTPMSVC_ENROLL_URL,
-# and enrolls the TPM EK public key found at $TPM_EKPUB and binds it to the
-# hostname specified by $HCP_SWTPMSVC_ENROLL_HOSTNAME. (Gotcha: the latter
-# needs to be the host that will _attest_ using this (sw)TPM, not the docker
-# container running the swtpm itself, which is what $HOSTNAME is set to!)
-# HCP_SWTPMSVC_ENROLL_HOSTNAME and HCP_SWTPMSVC_ENROLL_URL are passed in via
-# the Dockerfile, which leaves TPM_EKPUB.
+# enroll.py script hits the API endpoint for us and requires 3 environment
+# variables;
+# - $TPM_EKPUB is the path to the TPM EK public key to be enrolled,
+# - $HCP_SWTPMSVC_ENROLL_URL tells us where the API endpoint is, and
+# - $HCP_SWTPMSVC_ENROLL_HOSTNAME is the hostname the TPM should be bound to.
+# Gotcha: the latter is not $HOSTNAME (the current host/container running this
+# swtpm code), it's the host/container that _uses_ this TPM to attest itself
+# with!
+# The 2 HCP_SWTPMSVC_ENROLL_* variables are set by our caller (or even earlier,
+# in the Dockerfile), but we just created the EK and so we set TPM_EKPUB!
 export TPM_EKPUB=$HCP_SWTPMSVC_STATE_PREFIX/ek.pub
 echo "Enrolling TPM against hostname '$HCP_SWTPMSVC_ENROLL_HOSTNAME'"
 python3 /hcp/swtpmsvc/enroll.py

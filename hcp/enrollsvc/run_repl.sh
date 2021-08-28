@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# See applicable comments in run_mgmt.sh, I won't repeat them here.
-exec 1> /msgbus/enrollsvc-repl
-exec 2>&1
-
 . /hcp/enrollsvc/common.sh
 
 expect_root
