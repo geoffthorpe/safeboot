@@ -157,13 +157,12 @@ HCP_RUN_LOGS := $(HCP_RUN_TOP)/logs
 HCP_RUN_MDIRS := $(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS)
 $(HCP_RUN_MDIRS): | $(HCP_RUN_TOP)
 
-# We use rmdir as a discipline thing. This requires that anything generating
-# goodies under these directories must put a dependency from clean_hcp_run to
-# some rule of their own to clean their stuff out. BTW we add HCP_RUN_TOP to
-# HCP_RUN_MDIRS _after_ declaring this rule, otherwise this construction fails.
+# Anything generating goodies under these directories should put a dependency
+# from clean_hcp_run to some rule of their own to clean their stuff out. BTW we
+# add HCP_RUN_TOP to HCP_RUN_MDIRS _after_ declaring this rule, otherwise this
+# construction fails.
 clean_hcp_run:
-	$Qrmdir $(HCP_RUN_MDIRS)
-	$Qrmdir $(HCP_RUN_TOP)
+	$Qrm -rf $(HCP_RUN_TOP)
 
 HCP_RUN_MDIRS += $(HCP_RUN_TOP)
 
@@ -306,7 +305,7 @@ $(if $(containers),\
 	$(eval $(call sub_hcp_run_create_container,,$($(prefix)_CMD))))
 # State initialization (only for services, skipped for functions)
 $(if $(isFunction),,\
-$(initTgt): | $(HCP_RUN_MGMT)
+$(initTgt): | $(HCP_RUN_MGMT) $(HCP_RUN_STATE)
 $(initTgt):
 	$(if $(started),\
 		$Qecho "Error: cannot reinitialize '$(name)' state without stopping it."
