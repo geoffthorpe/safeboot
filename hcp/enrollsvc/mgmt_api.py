@@ -15,7 +15,7 @@ app.config["DEBUG"] = True
 @app.route('/', methods=['GET'])
 def home():
     return '''
-<h1>Attestation server orchestration API</h1>
+<h1>Enrollment Service Management API</h1>
 <hr>
 
 <h2>To add a new host entry;</h2>
