@@ -151,8 +151,6 @@ $(HCP_RUN_client_TGT_START) $(HCP_RUN_caboodle_TGT_START): \
 clean_hcp_enrollsvc: enrollsvc_clean
 clean_hcp_attestsvc: attestsvc_clean
 clean_hcp_swtpmsvc: swtpmsvc_clean
-clean_hcp_client: client_clean
-clean_hcp_caboodle: caboodle_clean
 # Inter-service dependencies;
 $(HCP_RUN_attestsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_repl_TGT_START)
 $(HCP_RUN_swtpmsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_mgmt_TGT_START)
