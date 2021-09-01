@@ -1,11 +1,13 @@
 #!/bin/bash
 
-. /hcp/attestsvc/common.sh
+cd /hcp/attestsvc
+
+. common.sh
 
 expect_hcp_user
 
-# The following helps to convince the safeboot scripts to find safeboot.conf
-# and functions.sh
+# Convince the safeboot scripts to find safeboot.conf and functions.sh (and the
+# flask launcher to find ./sbin/attest_server_sub.py)
 export DIR=/safeboot
 cd $DIR
 

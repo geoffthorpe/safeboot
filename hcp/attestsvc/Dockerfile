@@ -1,5 +1,5 @@
 RUN apt-get install -y git
-RUN apt-get install -y python3-yaml
+RUN apt-get install -y python3-yaml python3-flask
 
 ARG HCP_USER
 RUN useradd -m -s /bin/bash $HCP_USER
