@@ -46,31 +46,3 @@ HCP_RUN_ASSIST_CLEANUP ?= $(TOP)/hcp/assist_cleanup.sh
 # In the dev/debug workflow, the default "util_image" (for doing
 # container-based cleanup) is this;
 HCP_RUN_UTIL_IMAGE ?= debian:bullseye-slim
-
-# For good measure, provide a default rule that lists the targets that can be
-# used!
-default:
-	@echo ""
-	@echo "Direct usage of safeboot 'hcp/run' operational rules."
-	@echo ""
-	@echo "Current settings;"
-	@echo "   HCP_RUN_TOP = $(HCP_RUN_TOP)"
-	@echo "   HCP_RUN_DSPACE = $(HCP_RUN_DSPACE)"
-	@echo "   HCP_RUN_DNETWORKS = $(HCP_RUN_DNETWORKS)"
-	@echo "   HCP_RUN_UTIL_IMAGE = $(HCP_RUN_UTIL_IMAGE)"
-	@echo ""
-	@echo "To instantiate a service (i.e. initialize its state);"
-	@echo "   make enrollsvc_init  # Enrollment Service"
-	@echo "   make attestsvc_init  # Attestation Service"
-	@echo "   make swtpmsvc_init   # Software TPM Service"
-	@echo ""
-	@echo "Likewise, to cleanup and remove a service (its state);"
-	@echo "   make {enroll,attest,swtpm}svc_clean"
-	@echo ""
-	@echo "To start or stop a service;"
-	@echo "   make {enroll,attest,swtpm}svc_{start,stop}"
-	@echo ""
-	@echo "To run a function;"
-	@echo "   make client_start    # run the attestation client"
-	@echo "   make caboodle_start  # bash shell in a 'caboodle' container"
-	@echo ""
