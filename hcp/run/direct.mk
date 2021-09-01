@@ -30,22 +30,22 @@
 # under ./build, with HCP related stuff under ./build/hcp, and the runtime
 # state (and logs, [etc]) under ./build/hcp/run
 TOP ?= $(shell pwd)
-HCP_RUN_TOP := $(TOP)/build/hcp/run
+HCP_RUN_TOP ?= $(TOP)/build/hcp/run
 
 # In the dev/debug workflow, the default "DSPACE" (naming prefix used for all
 # objects on the local Docker instance) is;
-HCP_RUN_DSPACE := safeboot_hcp_
+HCP_RUN_DSPACE ?= safeboot_hcp_
 
 # In the dev/debug workflow, all containers default to attaching to a network
 # called "$(DSPACE)network_hcp";
-HCP_RUN_DNETWORKS := $(HCP_RUN_DSPACE)network_hcp
+HCP_RUN_DNETWORKS ?= $(HCP_RUN_DSPACE)network_hcp
 
 # In the dev/debug workflow, the required script is at this path;
-HCP_RUN_ASSIST_CLEANUP := $(TOP)/hcp/assist_cleanup.sh
+HCP_RUN_ASSIST_CLEANUP ?= $(TOP)/hcp/assist_cleanup.sh
 
 # In the dev/debug workflow, the default "util_image" (for doing
 # container-based cleanup) is this;
-HCP_RUN_UTIL_IMAGE := debian:bullseye-slim
+HCP_RUN_UTIL_IMAGE ?= debian:bullseye-slim
 
 # For good measure, provide a default rule that lists the targets that can be
 # used!
