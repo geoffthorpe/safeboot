@@ -1,81 +1,27 @@
-#!/usr/bin/python3
-"""
-Quote and Eventlog validating Attestation Server.
+#!/bin/bash
 
-This server accepts incoming HTTP POST requests from an attesting machine
-that contain a tar file of a TPM Endorsement Key, Attestation Key, Quote,
-PCR list, Eventlog and other details. It performs three actions:
+# Quote and Eventlog validating Attestation Server.
+#
+# This server accepts incoming HTTP POST requests from an attesting machine
+# that contain a tar file of a TPM Endorsement Key, Attestation Key, Quote,
+# PCR list, Eventlog and other details. It performs three actions:
+#
+# * Validates that the Quote is signed by the AK
+# * Validates that the EK certificate has a good trust chain
+# * Validates that the PCR extensions in the Eventlog produce the PCRs in the quote
+#
+# It then invokes an external handler to verify that the eventlog
+# meets the policy requirements, and will return any output from this
+# handler to the attesting machine.
 
-* Validates that the Quote is signed by the AK
-* Validates that the EK certificate has a good trust chain
-* Validaets that the PCR extensions in the Eventlog produce the PCRs in the quote
+PORT=8080
+if [[ $# -gt 0 ]]; then
+	if [[ $# -gt 1 ]]; then
+		echo "Usage: attest-server [port]" >&2
+		exit 1
+	fi
+	PORT=$1
+fi
 
-It then invokes an external handler to verify that the eventlog
-meets the policy requirements, and will return any output from this
-handler to the attesting machine.
-"""
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-import os
-import logging
-import sys
-import yaml
-import hashlib
-from attest_server_sub import attest_verify
-
-# hard code the hashing algorithm used
-alg = 'sha256'
-
-
-class AttestServer(SimpleHTTPRequestHandler):
-	def fail(self, msg):
-		logging.info("FAILED: ", msg)
-		self.send_response(401)
-		self.send_header('Content-type', 'text/html')
-		self.end_headers()
-		self.wfile.write(msg.encode())
-
-	def do_GET(self):
-		logging.info("GET request,\nPath: %s\nHeaders:\n%s\n", str(self.path), str(self.headers))
-		return super().do_GET()
-		#self.send_response(200)
-		#self.send_header('Content-type', 'text/html')
-		#self.end_headers()
-		#self.wfile.write("Only POST is supported".encode())
-
-	def do_POST(self):
-		content_length = int(self.headers.get('Content-Length',0))
-		quote_data = self.rfile.read(content_length)
-
-		rcode, rbody = attest_verify(quote_data)
-		if (rcode != 200):
-			return self.fail("Attestation failed")
-		self.send_response(200)
-		self.send_header('Content-type', 'application/octet-stream')
-		self.end_headers()
-		self.wfile.write(rbody)
-
-
-def run(port=8080):
-	logging.basicConfig(level=logging.INFO)
-	server_address = ('', port)
-	httpd = HTTPServer(server_address, AttestServer)
-	logging.info('Starting attestation httpd port %d...\n' % (port))
-	try:
-		httpd.serve_forever()
-	except KeyboardInterrupt:
-		pass
-	httpd.server_close()
-	logging.info('Stopping httpd...\n')
-
-if __name__ == '__main__':
-	from sys import argv
-
-	if len(argv) > 2:
-		print("Usage: attest-server [port]", file=sys.stderr)
-		exit(1)
-
-	if len(argv) == 2:
-		run(port=int(argv[1]))
-	else:
-		run()
-	exit(0)
+export FLASK_APP=sbin/attest_server_sub
+flask run --host=0.0.0.0 --port=$PORT

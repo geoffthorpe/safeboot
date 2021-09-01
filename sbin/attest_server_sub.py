@@ -1,27 +1,34 @@
 """
-Quote and Eventlog validating Attestation Server Utility Function.
+Quote and Eventlog validating Attestation Server.
 
-Takes an attestation request body as an argument, returns a tuple of an HTTP
-status code and a response body.
+This is a python flask server implementing a single API end-point. This is launched
+(for compatibility's sake) from sbin/attest-server. See the comments there for more
+explanation about the functionality.
 """
-import os
-import logging
-import tempfile
-import sys
+import flask
+from flask import request, abort, send_file
 import subprocess
+import os, sys
+from stat import *
+from markupsafe import escape
+from werkzeug.utils import secure_filename
+import tempfile
+import logging
 import yaml
 import hashlib
 
 # hard code the hashing algorithm used
 alg = 'sha256'
 
-def attest_verify(quote_data):
-	# write post data into a file
-	tmp_file = tempfile.NamedTemporaryFile()
-	tmp_file.write(quote_data)
-	tmp_file.flush()
-	quote_file = tmp_file.name
+# This subroutine is the meat in the sandwich. Its only argument is a path to
+# the input tarball (the "quotefile") that was received from the attesting
+# host/client, and it returns a 2-tuple of status code and response tarball (as
+# a byte array, not a path) for returning to the host/client. This function is
+# called by the flask-handling code further down, which extracts the input
+# tarball from the http request and returns the output tarball in the http
+# response.
 
+def attest_verify(quote_file):
 	# verify that the Endorsment Key came from an authorized TPM,
 	# that the quote is signed by a valid Attestation Key
 	sub = subprocess.run(["./sbin/tpm2-attest", "verify", quote_file ],
@@ -96,3 +103,44 @@ def attest_verify(quote_data):
 		return (403, "ATTEST_SEAL FAILED")
 
 	return (200, result.stdout)
+
+# The flask details;
+
+app = flask.Flask(__name__)
+app.config["DEBUG"] = True
+
+@app.route('/', methods=['GET'])
+def home_get():
+    return { "error": "GET request, but this service only supports POST" }
+
+@app.route('/', methods=['POST'])
+def home_post():
+    if 'quote' not in request.files:
+        abort(500)
+    f = request.files['quote']
+    # Create a temporary directory for the quote file, and make it world
+    # readable+executable. (This gets garbage collected after we're done, as do
+    # any files we put in there.) We may priv-sep the python API from the
+    # underlying safeboot routines at some point, by running the latter behind
+    # sudo as another user, so this ensures it would be able to read the quote
+    # file.
+    tf = tempfile.TemporaryDirectory()
+    s = os.stat(tf.name)
+    os.chmod(tf.name, s.st_mode | S_IROTH | S_IXOTH)
+    # Sanitize the user-supplied filename, append it to the temp directory
+    # path, and save the quote file.
+    p = os.path.join(tf.name, secure_filename(f.filename))
+    f.save(p)
+    # Pass the saved quote file (by path) to the attestation code
+    rcode, rbody = attest_verify(p)
+    if (rcode != 200):
+        return { "error": "attestation failed" }
+    # Put the output in a file in the temp directory and send it.
+    p = os.path.join(tf.name, 'output')
+    ofd = os.open(p, os.O_RDWR | os.O_CREAT)
+    os.write(ofd, rbody)
+    os.close(ofd)
+    return send_file(p)
+
+if __name__ == "__main__":
+    app.run()
