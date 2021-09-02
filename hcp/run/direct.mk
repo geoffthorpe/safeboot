@@ -33,8 +33,14 @@ TOP ?= $(shell pwd)
 HCP_RUN_TOP ?= $(TOP)/build/hcp/run
 
 # In the dev/debug workflow, the default "DSPACE" (naming prefix used for all
-# objects on the local Docker instance) is;
+# objects on the local Docker instance) "DTAG" (colon-separated suffix for all
+# container images) are;
 HCP_RUN_DSPACE ?= safeboot_hcp_
+SAFEBOOT_HCP_DTAG ?= devel
+# We always have to put a ":" in front for syntactic reasons
+ifdef SAFEBOOT_HCP_DTAG
+SAFEBOOT_HCP_DTAG := :$(SAFEBOOT_HCP_DTAG)
+endif
 
 # In the dev/debug workflow, all containers default to attaching to a network
 # called "$(DSPACE)network_hcp";
@@ -46,3 +52,11 @@ HCP_RUN_ASSIST_CLEANUP ?= $(TOP)/hcp/assist_cleanup.sh
 # In the dev/debug workflow, the default "util_image" (for doing
 # container-based cleanup) is this;
 HCP_RUN_UTIL_IMAGE ?= debian:bullseye-slim
+
+# Application knobs
+HCP_RUN_ATTEST_REMOTE_REPO := git://enrollsvc_repl/enrolldb
+HCP_RUN_ATTEST_UPDATE_TIMER := 10
+HCP_RUN_SWTPM_ENROLL_HOSTNAME := example_host.wherever.xyz
+HCP_RUN_SWTPM_ENROLL_URL := http://enrollsvc_mgmt:5000/v1/add
+HCP_RUN_CLIENT_TPM2TOOLS_TCTI := swtpm:host=swtpmsvc,port=9876
+HCP_RUN_CLIENT_ATTEST_URL := http://attestsvc_hcp:8080
