@@ -26,7 +26,7 @@ TAIL_WAIT=$(HCP_SRC)/tail_wait.pl
 # that already exist.
 HCP_EXISTING_IMAGES := $(shell docker image ls \
 			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
-			--format "{{.Repository}}" 2> /dev/null)
+			--format "{{.Repository}}:{{.Tag}}" 2> /dev/null)
 HCP_EXISTING_NETWORKS := $(shell docker network ls \
 			--filter label=$(SAFEBOOT_HCP_DSPACE)all \
 			--format "{{.Name}}" 2> /dev/null)

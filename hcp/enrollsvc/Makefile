@@ -1,5 +1,6 @@
 HCP_ENROLLSVC_SRC := $(HCP_SRC)/enrollsvc
 HCP_ENROLLSVC_OUT := $(HCP_OUT)/enrollsvc
+HCP_ENROLLSVC_DNAME := $(SAFEBOOT_HCP_DSPACE)enrollsvc$(SAFEBOOT_HCP_DTAG)
 
 $(HCP_ENROLLSVC_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_ENROLLSVC_OUT)
@@ -99,7 +100,7 @@ $(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject
 $(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject
 $(HCP_ENROLLSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz.inject
 $(HCP_ENROLLSVC_OUT)/Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
+	$Qecho "FROM $(HCP_BASE_DNAME)" > $@
 	$Qcat $(HCP_ENROLLSVC_SRC)/Dockerfile >> $@
 	$Qcat $(HCP_SUBMODULES_OUT)/install.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
@@ -112,7 +113,7 @@ $(HCP_ENROLLSVC_OUT)/built: $(HCP_ENROLLSVC_OUT)/Dockerfile
 $(HCP_ENROLLSVC_OUT)/built: $(HCP_ENROLLSVC_PATHS)
 $(HCP_ENROLLSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_ENROLLSVC_OUT)/built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)enrollsvc \
+	$Qdocker build -t $(HCP_ENROLLSVC_DNAME) \
 	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc=1 \
 	               -f $(HCP_ENROLLSVC_OUT)/Dockerfile \
 	               --build-arg DB_USER=$(DB_USER) \
@@ -122,8 +123,8 @@ $(HCP_ENROLLSVC_OUT)/built:
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_enrollsvc:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)enrollsvc,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)enrollsvc
+ifneq (,$(filter $(HCP_ENROLLSVC_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_ENROLLSVC_DNAME)
 endif
 	$Qrm -rf $(HCP_ENROLLSVC_OUT)
 

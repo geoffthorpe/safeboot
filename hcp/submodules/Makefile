@@ -45,7 +45,7 @@ ifdef SAFEBOOT_HCP_SUBMODULES_TPM2
 
 HCP_SUBMODULES_TPM2-TSS_RUN := $(HCP_SUBMODULES_DOCKER_RUN) \
 	-v $(TOP)/tpm2-tss:/tpm2-tss \
-	$(SAFEBOOT_HCP_DSPACE)builder \
+	$(HCP_BUILDER_DNAME) \
 	bash -c
 
 $(HCP_SUBMODULES_OUT)/tpm2-tss.autogened: tpm2-tss/bootstrap
@@ -80,7 +80,7 @@ $(HCP_SUBMODULES_OUT)/tpm2-tss.installed:
 
 HCP_SUBMODULES_TPM2-TOOLS_RUN := $(HCP_SUBMODULES_DOCKER_RUN) \
 	-v $(TOP)/tpm2-tools:/tpm2-tools \
-	$(SAFEBOOT_HCP_DSPACE)builder \
+	$(HCP_BUILDER_DNAME) \
 	bash -c
 
 $(HCP_SUBMODULES_OUT)/tpm2-tools.autogened: tpm2-tools/bootstrap
@@ -118,7 +118,7 @@ endif
 
 HCP_SUBMODULES_LIBTPMS_RUN := $(HCP_SUBMODULES_DOCKER_RUN) \
 	-v $(TOP)/libtpms:/libtpms \
-	$(SAFEBOOT_HCP_DSPACE)builder \
+	$(HCP_BUILDER_DNAME) \
 	bash -c
 
 $(HCP_SUBMODULES_OUT)/libtpms.autogened: libtpms/autogen.sh
@@ -152,7 +152,7 @@ $(HCP_SUBMODULES_OUT)/libtpms.installed:
 
 HCP_SUBMODULES_SWTPM_RUN := $(HCP_SUBMODULES_DOCKER_RUN) \
 	-v $(TOP)/swtpm:/swtpm \
-	$(SAFEBOOT_HCP_DSPACE)builder \
+	$(HCP_BUILDER_DNAME) \
 	bash -c
 
 $(HCP_SUBMODULES_OUT)/swtpm.autogened: swtpm/autogen.sh
@@ -198,7 +198,7 @@ endif
 $(HCP_SUBMODULES_OUT)/install.tar.gz:
 	$Q$(HCP_SUBMODULES_DOCKER_RUN) \
 		-v $(HCP_SUBMODULES_OUT):/put_it_here \
-		$(SAFEBOOT_HCP_DSPACE)builder bash -c "$(TGZ_CMD)"
+		$(HCP_BUILDER_DNAME) bash -c "$(TGZ_CMD)"
 $(HCP_SUBMODULES_OUT)/install.tar.gz.inject: $(HCP_SUBMODULES_OUT)/install.tar.gz
 	$Qecho "$(call tarball_extract,install)" > $@
 

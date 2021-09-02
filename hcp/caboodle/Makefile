@@ -15,6 +15,7 @@
 
 HCP_CABOODLE_SRC := $(HCP_SRC)/caboodle
 HCP_CABOODLE_OUT := $(HCP_OUT)/caboodle
+HCP_CABOODLE_DNAME := $(SAFEBOOT_HCP_DSPACE)caboodle$(SAFEBOOT_HCP_DTAG)
 
 $(HCP_CABOODLE_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_CABOODLE_OUT)
@@ -86,7 +87,7 @@ $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
+	$Qecho "FROM $(HCP_BASE_DNAME)" > $@
 	$Qcat $(HCP_ENROLLSVC_SRC)/Dockerfile >> $@
 	$Qcat $(HCP_ATTESTSVC_SRC)/Dockerfile >> $@
 	$Qcat $(HCP_SWTPMSVC_SRC)/Dockerfile >> $@
@@ -112,7 +113,7 @@ $(HCP_CABOODLE_OUT)/built: $(HCP_CABOODLE_OUT)/Dockerfile
 $(HCP_CABOODLE_OUT)/built: $(HCP_CABOODLE_PATHS)
 $(HCP_CABOODLE_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_CABOODLE_OUT)/built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)caboodle \
+	$Qdocker build -t $(HCP_CABOODLE_DNAME) \
 	               --label $(SAFEBOOT_HCP_DSPACE)caboodle=1 \
 	               -f $(HCP_CABOODLE_OUT)/Dockerfile \
 	               --build-arg DB_USER=$(DB_USER) \
@@ -123,8 +124,8 @@ $(HCP_CABOODLE_OUT)/built:
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_caboodle:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)caboodle,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)caboodle
+ifneq (,$(filter $(HCP_CABOODLE_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_CABOODLE_DNAME)
 endif
 	$Qrm -rf $(HCP_CABOODLE_OUT)
 

@@ -1,5 +1,6 @@
 HCP_ATTESTSVC_SRC := $(HCP_SRC)/attestsvc
 HCP_ATTESTSVC_OUT := $(HCP_OUT)/attestsvc
+HCP_ATTESTSVC_DNAME := $(SAFEBOOT_HCP_DSPACE)attestsvc$(SAFEBOOT_HCP_DTAG)
 
 $(HCP_ATTESTSVC_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_ATTESTSVC_OUT)
@@ -92,7 +93,7 @@ $(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject
 $(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject
 $(HCP_ATTESTSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject
 $(HCP_ATTESTSVC_OUT)/Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
+	$Qecho "FROM $(HCP_BASE_DNAME)" > $@
 	$Qcat $(HCP_ATTESTSVC_SRC)/Dockerfile >> $@
 	$Qcat $(HCP_SUBMODULES_OUT)/install.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
@@ -105,7 +106,7 @@ $(HCP_ATTESTSVC_OUT)/built: $(HCP_ATTESTSVC_OUT)/Dockerfile
 $(HCP_ATTESTSVC_OUT)/built: $(HCP_ATTESTSVC_PATHS)
 $(HCP_ATTESTSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_ATTESTSVC_OUT)/built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)attestsvc \
+	$Qdocker build -t $(HCP_ATTESTSVC_DNAME) \
 	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc=1 \
 	               -f $(HCP_ATTESTSVC_OUT)/Dockerfile \
 	               --build-arg HCP_USER=$(HCP_USER) \
@@ -114,8 +115,8 @@ $(HCP_ATTESTSVC_OUT)/built:
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_attestsvc:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)attestsvc,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)attestsvc
+ifneq (,$(filter $(HCP_ATTESTSVC_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_ATTESTSVC_DNAME)
 endif
 	$Qrm -rf $(HCP_ATTESTSVC_OUT)
 

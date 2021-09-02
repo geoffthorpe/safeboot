@@ -26,6 +26,11 @@
 
 HCP_BASE_SRC := $(HCP_SRC)/base
 HCP_BASE_OUT := $(HCP_OUT)/base
+HCP_BASE0_DNAME := $(SAFEBOOT_HCP_DSPACE)base_0import$(SAFEBOOT_HCP_DTAG)
+HCP_BASE1_DNAME := $(SAFEBOOT_HCP_DSPACE)base_1apt-source$(SAFEBOOT_HCP_DTAG)
+HCP_BASE2_DNAME := $(SAFEBOOT_HCP_DSPACE)base_2apt-usable$(SAFEBOOT_HCP_DTAG)
+HCP_BASE3_DNAME := $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts$(SAFEBOOT_HCP_DTAG)
+HCP_BASE4_DNAME := $(SAFEBOOT_HCP_DSPACE)base_4platform$(SAFEBOOT_HCP_DTAG)
 
 $(HCP_BASE_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_BASE_OUT)
@@ -35,6 +40,7 @@ MDIRS += $(HCP_BASE_OUT)
 # - Use "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" to derive images.
 HCP_BASE_TOUCHFILE := $(HCP_BASE_OUT)/4platform.built
 HCP_BASE_IMAGE := base_4platform
+HCP_BASE_DNAME := $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)$(SAFEBOOT_HCP_DTAG)
 
 # A wrapper target to build the "base platform" image
 hcp_base: $(HCP_BASE_TOUCHFILE)
@@ -53,7 +59,7 @@ $(HCP_BASE_OUT)/0import.Dockerfile:
 $(HCP_BASE_OUT)/0import.built: $(HCP_BASE_OUT)/0import.Dockerfile
 $(HCP_BASE_OUT)/0import.built:
 	$Qcat $(HCP_BASE_OUT)/0import.Dockerfile | \
-		docker build -t $(SAFEBOOT_HCP_DSPACE)base_0import \
+		docker build -t $(HCP_BASE0_DNAME) \
 			--label $(SAFEBOOT_HCP_DSPACE)all=1 -
 	$Qtouch $@
 
@@ -68,13 +74,13 @@ $(HCP_BASE_OUT)/1apt-source.Dockerfile: $(HCP_BASE_DEPS_COMMON)
 $(HCP_BASE_OUT)/1apt-source.Dockerfile: $(HCP_BASE_SRC)/1apt-source.Dockerfile
 $(HCP_BASE_OUT)/1apt-source.Dockerfile: $(SAFEBOOT_HCP_1APT_FILES)
 $(HCP_BASE_OUT)/1apt-source.Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)base_0import" > $@
+	$Qecho "FROM $(HCP_BASE0_DNAME)" > $@
 	$Qcat $(HCP_BASE_SRC)/1apt-source.Dockerfile >> $@
 
 $(HCP_BASE_OUT)/1apt-source.built: $(HCP_BASE_OUT)/0import.built
 $(HCP_BASE_OUT)/1apt-source.built: $(HCP_BASE_OUT)/1apt-source.Dockerfile
 $(HCP_BASE_OUT)/1apt-source.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)base_1apt-source \
+	$Qdocker build -t $(HCP_BASE1_DNAME) \
 	               -f $(HCP_BASE_OUT)/1apt-source.Dockerfile \
 	               $(HCP_BASE_SRC)/1apt-source-context/
 	$Qtouch $@
@@ -93,9 +99,9 @@ $(HCP_BASE_OUT)/2apt-usable.Dockerfile: $(HCP_BASE_DEPS_COMMON)
 $(HCP_BASE_OUT)/2apt-usable.Dockerfile: $(HCP_BASE_SRC)/2apt-usable.Dockerfile
 $(HCP_BASE_OUT)/2apt-usable.Dockerfile:
 ifdef SAFEBOOT_HCP_1APT_ENABLE
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)base_1apt-source" > $@
+	$Qecho "FROM $(HCP_BASE1_DNAME)" > $@
 else
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)base_0import" > $@
+	$Qecho "FROM $(HCP_BASE0_DNAME)" > $@
 endif
 	$Qcat $(HCP_BASE_SRC)/2apt-usable.Dockerfile >> $@
 
@@ -117,7 +123,7 @@ $(HCP_BASE_OUT)/2apt-usable.built: $(HCP_BASE_OUT)/2apt-usable.Dockerfile
 $(HCP_BASE_OUT)/2apt-usable.built: $(HCP_BASE_2APT_OUT)/apt-proxy.sh
 $(HCP_BASE_OUT)/2apt-usable.built: $(HCP_BASE_2APT_OUT)/timezone
 $(HCP_BASE_OUT)/2apt-usable.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)base_2apt-usable \
+	$Qdocker build -t $(HCP_BASE2_DNAME) \
 	               -f $(HCP_BASE_OUT)/2apt-usable.Dockerfile \
 		       --build-arg SAFEBOOT_HCP_APT_PROXY=$(SAFEBOOT_HCP_APT_PROXY) \
 	               $(HCP_BASE_2APT_OUT)/
@@ -146,14 +152,14 @@ $(HCP_BASE_OUT)/3add-cacerts.Dockerfile: | $(HCP_BASE_OUT)
 $(HCP_BASE_OUT)/3add-cacerts.Dockerfile: $(HCP_BASE_DEPS_COMMON)
 $(HCP_BASE_OUT)/3add-cacerts.Dockerfile: $(HCP_BASE_SRC)/3add-cacerts.Dockerfile
 $(HCP_BASE_OUT)/3add-cacerts.Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)base_2apt-usable" > $@
+	$Qecho "FROM $(HCP_BASE2_DNAME)" > $@
 	$Qcat $(HCP_BASE_SRC)/3add-cacerts.Dockerfile >> $@
 
 $(HCP_BASE_OUT)/3add-cacerts.built: $(HCP_BASE_OUT)/2apt-usable.built
 $(HCP_BASE_OUT)/3add-cacerts.built: $(HCP_BASE_OUT)/3add-cacerts.Dockerfile
 $(HCP_BASE_OUT)/3add-cacerts.built: $(HCP_BASE_3CA_CERTS)
 $(HCP_BASE_OUT)/3add-cacerts.built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts \
+	$Qdocker build -t $(HCP_BASE3_DNAME) \
 	               -f $(HCP_BASE_OUT)/3add-cacerts.Dockerfile \
 	               $(HCP_BASE_3CA_OUT)/
 	$Qtouch $@
@@ -163,9 +169,9 @@ endif # SAFEBOOT_HCP_3ADD_CACERTS_ENABLE
 # LAYER: 4platform
 
 ifdef SAFEBOOT_HCP_3ADD_CACERTS_ENABLE
-HCP_BASE_4PLATFORM_ANCESTOR := base_3add-cacerts
+HCP_BASE_4PLATFORM_ANCESTOR := $(HCP_BASE3_DNAME)
 else
-HCP_BASE_4PLATFORM_ANCESTOR := base_2apt-usable
+HCP_BASE_4PLATFORM_ANCESTOR := $(HCP_BASE2_DNAME)
 endif
 ifdef SAFEBOOT_HCP_4PLATFORM_NO_TPM2
 HCP_BASE_4PLATFORM_TPM2_TOOLS :=
@@ -181,7 +187,7 @@ $(HCP_BASE_OUT)/4platform.Dockerfile: | $(HCP_BASE_OUT)
 $(HCP_BASE_OUT)/4platform.Dockerfile: $(HCP_BASE_DEPS_COMMON)
 $(HCP_BASE_OUT)/4platform.Dockerfile: $(HCP_BASE_SRC)/4platform.Dockerfile
 $(HCP_BASE_OUT)/4platform.Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_4PLATFORM_ANCESTOR)" > $@
+	$Qecho "FROM $(HCP_BASE_4PLATFORM_ANCESTOR)" > $@
 	$Qcat $(HCP_BASE_SRC)/4platform.Dockerfile | \
 	sed -e "s/HCP_BASE_4PLATFORM_TPM2_TOOLS/$(HCP_BASE_4PLATFORM_TPM2_TOOLS)/" | \
 	sed -e "s/HCP_BASE_4PLATFORM_XTRA/$(HCP_BASE_4PLATFORM_XTRA)/" >> $@
@@ -194,30 +200,30 @@ endif
 $(HCP_BASE_OUT)/4platform.built: $(HCP_BASE_OUT)/4platform.Dockerfile
 $(HCP_BASE_OUT)/4platform.built:
 	$Qcat $(HCP_BASE_OUT)/4platform.Dockerfile | \
-		docker build -t $(SAFEBOOT_HCP_DSPACE)base_4platform -
+		docker build -t $(HCP_BASE4_DNAME) -
 	$Qtouch $@
 
 clean_hcp_base:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_4platform,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_4platform
+ifneq (,$(filter $(HCP_BASE4_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_BASE4_DNAME)
 endif
 	$Qrm -f $(HCP_BASE_OUT)/4platform.*
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_3add-cacerts
+ifneq (,$(filter $(HCP_BASE3_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_BASE3_DNAME)
 endif
 	$Qrm -f $(HCP_BASE_OUT)/3add-cacerts.*
 	$Qrm -rf $(HCP_BASE_3CA_OUT)
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_2apt-usable,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_2apt-usable
+ifneq (,$(filter $(HCP_BASE2_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_BASE2_DNAME)
 endif
 	$Qrm -f $(HCP_BASE_OUT)/2apt-usable.*
 	$Qrm -rf $(HCP_BASE_2APT_OUT)
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_1apt-source,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_1apt-source
+ifneq (,$(filter $(HCP_BASE1_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_BASE1_DNAME)
 endif
 	$Qrm -f $(HCP_BASE_OUT)/1apt-source.*
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)base_0import,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)base_0import
+ifneq (,$(filter $(HCP_BASE0_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_BASE0_DNAME)
 endif
 	$Qrm -f $(HCP_BASE_OUT)/0import.*
 	$Qrm -rf $(HCP_BASE_OUT)

@@ -1,5 +1,6 @@
 HCP_SWTPMSVC_SRC := $(HCP_SRC)/swtpmsvc
 HCP_SWTPMSVC_OUT := $(HCP_OUT)/swtpmsvc
+HCP_SWTPMSVC_DNAME := $(SAFEBOOT_HCP_DSPACE)swtpmsvc$(SAFEBOOT_HCP_DTAG)
 
 $(HCP_SWTPMSVC_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_SWTPMSVC_OUT)
@@ -42,7 +43,7 @@ $(HCP_SWTPMSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject
 $(HCP_SWTPMSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject
 $(HCP_SWTPMSVC_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz.inject
 $(HCP_SWTPMSVC_OUT)/Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
+	$Qecho "FROM $(HCP_BASE_DNAME)" > $@
 	$Qcat $(HCP_SWTPMSVC_SRC)/Dockerfile >> $@
 	$Qcat $(HCP_SUBMODULES_OUT)/install.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject >> $@
@@ -55,7 +56,7 @@ $(HCP_SWTPMSVC_OUT)/built: $(HCP_SWTPMSVC_OUT)/Dockerfile
 $(HCP_SWTPMSVC_OUT)/built: $(HCP_SWTPMSVC_PATHS)
 $(HCP_SWTPMSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_SWTPMSVC_OUT)/built:
-	$Qdocker build -t $(SAFEBOOT_HCP_DSPACE)swtpmsvc \
+	$Qdocker build -t $(HCP_SWTPMSVC_DNAME) \
 	               --label $(SAFEBOOT_HCP_DSPACE)swtpmsvc=1 \
 	               -f $(HCP_SWTPMSVC_OUT)/Dockerfile \
 	               $(HCP_SWTPMSVC_OUT)
@@ -63,8 +64,8 @@ $(HCP_SWTPMSVC_OUT)/built:
 
 # "docker image rm" to remove the container image (interface and recipe)
 clean_hcp_swtpmsvc:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)swtpmsvc,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)swtpmsvc
+ifneq (,$(filter $(HCP_SWTPMSVC_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_SWTPMSVC_DNAME)
 endif
 	$Qrm -rf $(HCP_SWTPMSVC_OUT)
 

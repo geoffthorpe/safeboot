@@ -278,7 +278,7 @@ $(ctarget):
 		$(foreach i,$(HCP_RUN_DNETWORKS),--network $i ) \
 		--label $(HCP_RUN_DSPACE)$(name)$(csuffix)=1 \
 		$(cenvs) \
-		$(fullName) \
+		$(imgName) \
 		$2
 	$(if $(isFunction),,\
 	$Qecho "Running '$(name)$(csuffix)' with CID=`cat $(cid)`"
@@ -312,6 +312,7 @@ define hcp_run_create
 $(eval prefix := $(strip $1))
 $(eval name := $($(prefix)_NAME))
 $(eval fullName := $(HCP_RUN_DSPACE)$(name))
+$(eval imgName := $(HCP_RUN_DSPACE)$(name)$(SAFEBOOT_HCP_DTAG))
 $(eval state := $(HCP_RUN_STATE)/$(name))
 $(eval containers := $($(prefix)_CONTAINERS))
 $(eval cmdInit := $(strip $($(prefix)_CMD_INIT)))
@@ -356,7 +357,7 @@ $(initTgt):
 		$(foreach i,$(HCP_RUN_DNETWORKS),--network $i ) \
 		--label $(HCP_RUN_DSPACE)$(name)_init=1 \
 		$(envs) \
-		$(fullName) \
+		$(imgName) \
 		$(cmdInit)
 	$Qtouch $$@
 $(name)_init: $(initTgt)

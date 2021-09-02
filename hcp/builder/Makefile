@@ -1,5 +1,6 @@
 HCP_BUILDER_SRC := $(HCP_SRC)/builder
 HCP_BUILDER_OUT := $(HCP_OUT)/builder
+HCP_BUILDER_DNAME := $(SAFEBOOT_HCP_DSPACE)builder$(SAFEBOOT_HCP_DTAG)
 
 $(HCP_BUILDER_OUT): | $(HCP_OUT)
 MDIRS += $(HCP_BUILDER_OUT)
@@ -11,20 +12,20 @@ $(HCP_BUILDER_OUT)/Dockerfile: | $(HCP_BUILDER_OUT)
 $(HCP_BUILDER_OUT)/Dockerfile: $(HCP_BUILDER_SRC)/Makefile
 $(HCP_BUILDER_OUT)/Dockerfile: $(HCP_BUILDER_SRC)/Dockerfile
 $(HCP_BUILDER_OUT)/Dockerfile:
-	$Qecho "FROM $(SAFEBOOT_HCP_DSPACE)$(HCP_BASE_IMAGE)" > $@
+	$Qecho "FROM $(HCP_BASE_DNAME)" > $@
 	$Qcat $(HCP_BUILDER_SRC)/Dockerfile >> $@
 
 $(HCP_BUILDER_OUT)/built: $(HCP_BUILDER_OUT)/Dockerfile
 $(HCP_BUILDER_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_BUILDER_OUT)/built:
 	$Qcat $(HCP_BUILDER_OUT)/Dockerfile | \
-		docker build -t $(SAFEBOOT_HCP_DSPACE)builder \
+		docker build -t $(HCP_BUILDER_DNAME) \
 			--label $(SAFEBOOT_HCP_DSPACE)builder=1 -
 	$Qtouch $@
 
 clean_hcp_builder:
-ifneq (,$(filter $(SAFEBOOT_HCP_DSPACE)builder,$(HCP_EXISTING_IMAGES)))
-	$Qdocker image rm $(SAFEBOOT_HCP_DSPACE)builder
+ifneq (,$(filter $(HCP_BUILDER_DNAME),$(HCP_EXISTING_IMAGES)))
+	$Qdocker image rm $(HCP_BUILDER_DNAME)
 endif
 	$Qrm -rf $(HCP_BUILDER_OUT)
 
