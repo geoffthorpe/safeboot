@@ -237,6 +237,15 @@ endif
 # $1_MOUNT_<x> (for each x in $1_CONTAINERS) = optional mount args
 #    - E.g. ":ro", if container 'x' should have a read-only mount.
 # $1_ARGS_<x> (for each x in $1_CONTAINERS) = x-specific args to docker-run.
+#    - services are run with "-d and --cidfile", functions are run with "--rm".
+#      These ARGS parameters allows us to selectively add other flags.
+#    - if a function provides a shell (e.g. if $1_CMD is "bash"), you probably
+#      want to add "-i" and "-t".
+#    - if a function runs as part of a CI pipeline, or should support pipes for
+#      stdin and stdout, you probably do _NOT_ want to add both "-i" and "-t".
+#      (See "man docker-run" for more detail.)
+#    - ad-hoc host mounts (e.g. mounting "escapehatch" in the "client" and
+#      "caboodle" functions) can be provided this way, as "-v <src>:<dest>".
 # $1_ARGS = default args to pass to docker-run
 #    - Only used when there's no 'x'. E.g. during init, and for
 #      single-container where $1_CONTAINERS is empty.
@@ -262,7 +271,7 @@ $(eval clastExit := $(HCP_RUN_MGMT)/$(name)$(csuffix).lastExitCode)
 $(eval log := $(HCP_RUN_LOGS)/$(name)$(csuffix).`date +%Y-%m-%d`)
 $(eval cenvs := $($(prefix)_ARGS$(csuffix)))
 $(eval HCP_RUN_$(name)$(csuffix)_TGT_START := $(ctarget))
-$(eval dockFlags := $(if $(isFunction),-it --rm,-d --cidfile=$(cid)))
+$(eval dockFlags := $(if $(isFunction),--rm,-d --cidfile=$(cid)))
 $(eval mountFlags := $(if $(isFunction),,-v $(state):$(mount)$3))
 # Service start
 $(if $(isFunction),,\
@@ -433,6 +442,7 @@ $(eval $(call hcp_run_create,HCP_RUN_CLIENT))
 HCP_RUN_CABOODLE_NAME := caboodle
 HCP_RUN_CABOODLE_CMD_INIT :=
 HCP_RUN_CABOODLE_CMD := bash
+HCP_RUN_CABOODLE_ARGS := -it
 HCP_RUN_CABOODLE_ARGS += -v $(shell pwd):/escapehatch
 $(eval $(call hcp_run_create,HCP_RUN_CABOODLE))
 
