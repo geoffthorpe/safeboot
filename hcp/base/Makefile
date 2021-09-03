@@ -203,7 +203,7 @@ $(HCP_BASE_OUT)/4platform.built:
 		docker build -t $(HCP_BASE4_DNAME) -
 	$Qtouch $@
 
-clean_hcp_base:
+clean_hcp_base: | preclean_hcp
 ifneq (,$(filter $(HCP_BASE4_DNAME),$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(HCP_BASE4_DNAME)
 endif

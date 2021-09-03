@@ -123,7 +123,7 @@ $(HCP_CABOODLE_OUT)/built:
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_caboodle:
+clean_hcp_caboodle: | preclean_hcp
 ifneq (,$(filter $(HCP_CABOODLE_DNAME),$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(HCP_CABOODLE_DNAME)
 endif

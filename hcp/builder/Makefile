@@ -23,7 +23,7 @@ $(HCP_BUILDER_OUT)/built:
 			--label $(SAFEBOOT_HCP_DSPACE)builder=1 -
 	$Qtouch $@
 
-clean_hcp_builder:
+clean_hcp_builder: | preclean_hcp
 ifneq (,$(filter $(HCP_BUILDER_DNAME),$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(HCP_BUILDER_DNAME)
 endif

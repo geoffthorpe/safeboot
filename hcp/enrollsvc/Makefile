@@ -122,7 +122,7 @@ $(HCP_ENROLLSVC_OUT)/built:
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_enrollsvc:
+clean_hcp_enrollsvc: | preclean_hcp
 ifneq (,$(filter $(HCP_ENROLLSVC_DNAME),$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(HCP_ENROLLSVC_DNAME)
 endif

@@ -190,8 +190,21 @@ else
 	$Qdocker exec -it $(CID) /bin/bash
 endif
 
+# This can be used as an order-only dependency (after a "|") for all "clean_*"
+# rules that try to remove a container image. Why? Because even if we always
+# pass "--rm" to docker-run, we can't entirely rid ourselves of
+# exited-but-not-removed containers: if docker-build launches a container to
+# run a Dockerfile command and it fails, _that_ container will linger, and in
+# doing so it will prevent the removal of container images that are ancestors
+# of it! Thus - this rule provides a way to detect that particular class of
+# exited containers and remove them. Making sure it runs before your cleanup
+# routine helps ensure your "docker imgae rm" statements don't fail.
+preclean_hcp:
+	$Qdocker container ls -a -q --filter=label=$(SAFEBOOT_HCP_DSPACE)all | \
+		xargs -r docker container rm
+
 clean_hcp:
 	$Qrm -rf $(HCP_OUT)
 
-# Make sure "hcp_clean" runs before "clean"
+# Make sure "clean_hcp" runs before "clean"
 clean: clean_hcp

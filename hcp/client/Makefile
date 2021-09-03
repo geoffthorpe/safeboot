@@ -63,7 +63,7 @@ $(HCP_CLIENT_OUT)/built:
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_client:
+clean_hcp_client: | preclean_hcp
 ifneq (,$(filter $(HCP_CLIENT_DNAME),$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(HCP_CLIENT_DNAME)
 endif

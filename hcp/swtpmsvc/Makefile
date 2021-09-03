@@ -63,7 +63,7 @@ $(HCP_SWTPMSVC_OUT)/built:
 	$Qtouch $@
 
 # "docker image rm" to remove the container image (interface and recipe)
-clean_hcp_swtpmsvc:
+clean_hcp_swtpmsvc: | preclean_hcp
 ifneq (,$(filter $(HCP_SWTPMSVC_DNAME),$(HCP_EXISTING_IMAGES)))
 	$Qdocker image rm $(HCP_SWTPMSVC_DNAME)
 endif
