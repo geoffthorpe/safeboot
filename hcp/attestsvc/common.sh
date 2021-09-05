@@ -57,6 +57,10 @@ if [[ `whoami` == "root" ]]; then
 	echo "HCP_ATTESTSVC_STATE_PREFIX=$HCP_ATTESTSVC_STATE_PREFIX" >> /etc/environment
 	echo "HCP_ATTESTSVC_REMOTE_REPO=$HCP_ATTESTSVC_REMOTE_REPO" >> /etc/environment
 	echo "HCP_ATTESTSVC_UPDATE_TIMER=$HCP_ATTESTSVC_UPDATE_TIMER" >> /etc/environment
+	echo "SAFEBOOT_UWSGI=$SAFEBOOT_UWSGI" >> /etc/environment
+	echo "SAFEBOOT_UWSGI_FLAGS=$SAFEBOOT_UWSGI_FLAGS" >> /etc/environment
+	echo "SAFEBOOT_UWSGI_PORT=$SAFEBOOT_UWSGI_PORT" >> /etc/environment
+	echo "SAFEBOOT_UWSGI_OPTIONS=$SAFEBOOT_UWSGI_OPTIONS" >> /etc/environment
 	echo "HCP_ENVIRONMENT_SET=1" >> /etc/environment
 fi
 
@@ -66,6 +70,10 @@ echo "                HCP_USER=$HCP_USER" >&2
 echo "  HCP_ATTESTSVC_STATE_PREFIX=$HCP_ATTESTSVC_STATE_PREFIX" >&2
 echo "   HCP_ATTESTSVC_REMOTE_REPO=$HCP_ATTESTSVC_REMOTE_REPO" >&2
 echo "  HCP_ATTESTSVC_UPDATE_TIMER=$HCP_ATTESTSVC_UPDATE_TIMER" >&2
+echo "              SAFEBOOT_UWSGI=$SAFEBOOT_UWSGI" >&2
+echo "        SAFEBOOT_UWSGI_FLAGS=$SAFEBOOT_UWSGI_FLAGS" >&2
+echo "         SAFEBOOT_UWSGI_PORT=$SAFEBOOT_UWSGI_PORT" >&2
+echo "      SAFEBOOT_UWSGI_OPTIONS=$SAFEBOOT_UWSGI_OPTIONS" >&2
 
 # Basic functions
 
@@ -84,5 +92,5 @@ function expect_hcp_user {
 }
 
 function drop_privs_hcp {
-	su -c "$1 $2 $3 $4 $5" - $HCP_USER
+	su -c "$*" - $HCP_USER
 }
