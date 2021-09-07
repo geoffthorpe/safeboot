@@ -36,11 +36,7 @@ HCP_RUN_TOP ?= $(TOP)/build/hcp/run
 # objects on the local Docker instance) "DTAG" (colon-separated suffix for all
 # container images) are;
 HCP_RUN_DSPACE ?= safeboot_hcp_
-SAFEBOOT_HCP_DTAG ?= devel
-# We always have to put a ":" in front for syntactic reasons
-ifdef SAFEBOOT_HCP_DTAG
-SAFEBOOT_HCP_DTAG := :$(SAFEBOOT_HCP_DTAG)
-endif
+SAFEBOOT_HCP_DTAG ?= :devel
 
 # In the dev/debug workflow, all containers default to attaching to a network
 # called "$(DSPACE)network_hcp";
