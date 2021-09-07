@@ -93,15 +93,27 @@ if [[ `whoami` == "root" ]]; then
 	echo "DB_USER=$DB_USER" >> /etc/environment
 	echo "FLASK_USER=$FLASK_USER" >> /etc/environment
 	echo "HCP_ENROLLSVC_STATE_PREFIX=$HCP_ENROLLSVC_STATE_PREFIX" >> /etc/environment
+	echo "HCP_RUN_ENROLL_UWSGI=$HCP_RUN_ENROLL_UWSGI" >> /etc/environment
+	echo "HCP_RUN_ENROLL_UWSGI_PORT=$HCP_RUN_ENROLL_UWSGI_PORT" >> /etc/environment
+	echo "HCP_RUN_ENROLL_UWSGI_FLAGS=$HCP_RUN_ENROLL_UWSGI_FLAGS" >> /etc/environment
+	echo "HCP_RUN_ENROLL_UWSGI_OPTIONS=$HCP_RUN_ENROLL_UWSGI_OPTIONS" >> /etc/environment
+	echo "HCP_RUN_ENROLL_GITDAEMON=$HCP_RUN_ENROLL_GITDAEMON" >> /etc/environment
+	echo "HCP_RUN_ENROLL_GITDAEMON_FLAGS=$HCP_RUN_ENROLL_GITDAEMON_FLAGS" >> /etc/environment
 	echo "HCP_ENVIRONMENT_SET=1" >> /etc/environment
 fi
 
 # Print the base configuration
 echo "Running '$0'" >&2
-echo "  HCP_ENROLLSVC_STATE_PREFIX=$HCP_ENROLLSVC_STATE_PREFIX" >&2
-echo "                 DB_USER=$DB_USER" >&2
-echo "              FLASK_USER=$FLASK_USER" >&2
-echo "             DB_IN_SETUP=$DB_IN_SETUP" >&2
+echo "    HCP_ENROLLSVC_STATE_PREFIX=$HCP_ENROLLSVC_STATE_PREFIX" >&2
+echo "                       DB_USER=$DB_USER" >&2
+echo "                    FLASK_USER=$FLASK_USER" >&2
+echo "                   DB_IN_SETUP=$DB_IN_SETUP" >&2
+echo "          HCP_RUN_ENROLL_UWSGI=$HCP_RUN_ENROLL_UWSGI" >&2
+echo "     HCP_RUN_ENROLL_UWSGI_PORT=$HCP_RUN_ENROLL_UWSGI_PORT" >&2
+echo "    HCP_RUN_ENROLL_UWSGI_FLAGS=$HCP_RUN_ENROLL_UWSGI_FLAGS" >&2
+echo "   HCP_RUN_ENROLL_UWSGI_OPTIONS=$HCP_RUN_ENROLL_UWSGI_OPTIONS" >&2
+echo "       HCP_RUN_ENROLL_GITDAEMON=$HCP_RUN_ENROLL_GITDAEMON" >&2
+echo " HCP_RUN_ENROLL_GITDAEMON_FLAGS=$HCP_RUN_ENROLL_GITDAEMON_FLAGS" >&2
 
 # Derive more configuration using these constants
 REPO_NAME=enrolldb.git
@@ -111,11 +123,11 @@ EK_PATH=$REPO_PATH/$EK_BASENAME
 REPO_LOCKPATH=$HCP_ENROLLSVC_STATE_PREFIX/lock-$REPO_NAME
 
 # Print the additional configuration
-echo "               REPO_NAME=$REPO_NAME" >&2
-echo "             EK_BASENAME=$EK_BASENAME" >&2
-echo "               REPO_PATH=$REPO_PATH" >&2
-echo "                 EK_PATH=$EK_PATH" >&2
-echo "           REPO_LOCKPATH=$REPO_LOCKPATH" >&2
+echo "                      REPO_NAME=$REPO_NAME" >&2
+echo "                    EK_BASENAME=$EK_BASENAME" >&2
+echo "                      REPO_PATH=$REPO_PATH" >&2
+echo "                        EK_PATH=$EK_PATH" >&2
+echo "                  REPO_LOCKPATH=$REPO_LOCKPATH" >&2
 
 # Basic functions
 
@@ -147,11 +159,11 @@ function drop_privs_db {
 	# only applies during one-time initialization whereas the other
 	# settings apply longer term. (The fact this is only used as we drop
 	# from root to non-root also means it's OK.)
-	su --whitelist-environment DB_IN_SETUP -c "$1 $2 $3 $4 $5" - $DB_USER
+	su --whitelist-environment DB_IN_SETUP -c "$*" - $DB_USER
 }
 
 function drop_privs_flask {
-	su -c "$1 $2 $3 $4 $5" - $FLASK_USER
+	su -c "$*" - $FLASK_USER
 }
 
 function repo_cmd_lock {
