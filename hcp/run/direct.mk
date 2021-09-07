@@ -63,28 +63,32 @@ HCP_RUN_UTIL_IMAGE ?= debian:bullseye-slim
 # Application properties #
 ##########################
 
-# Commented-out settings show defaults.
+# - Commented-out settings show defaults.
+# - The CI script (hcp/ci-script.sh) intentionally stubs out all XTRA settings
+#   to avoid any --publish arguments in a CI pipeline. If you add something
+#   other than --publish args to an XTRA variable, consider the implications!
 
-#HCP_RUN_ENROLL_UWSGI := uwsgi_python3
-#HCP_RUN_ENROLL_UWSGI_PORT := 5000
-#HCP_RUN_ENROLL_UWSGI_FLAGS := --http :5000 --stats :5001
-#HCP_RUN_ENROLL_UWSGI_OPTIONS := --processes 2 --threads 2
-#HCP_RUN_ENROLL_GITDAEMON := /usr/lib/git-core/git-daemon
-#HCP_RUN_ENROLL_GITDAEMON_FLAGS := --reuseaddr --verbose --listen=0.0.0.0 --port=9418
-HCP_RUN_ENROLL_XTRA_MGMT := -p 5000:5000 -p 5001:5001
-HCP_RUN_ENROLL_XTRA_REPL := -p 9418:9418
+#HCP_RUN_ENROLL_UWSGI ?= uwsgi_python3
+#HCP_RUN_ENROLL_UWSGI_PORT ?= 5000
+#HCP_RUN_ENROLL_UWSGI_FLAGS ?= --http :5000 --stats :5001
+#HCP_RUN_ENROLL_UWSGI_OPTIONS ?= --processes 2 --threads 2
+#HCP_RUN_ENROLL_GITDAEMON ?= /usr/lib/git-core/git-daemon
+#HCP_RUN_ENROLL_GITDAEMON_FLAGS ?= --reuseaddr --verbose --listen=0.0.0.0 --port=9418
+HCP_RUN_ENROLL_XTRA_MGMT ?= --publish=5000:5000 --publish=5001:5001
+HCP_RUN_ENROLL_XTRA_REPL ?= --publish=9418:9418
 
-HCP_RUN_ATTEST_REMOTE_REPO := git://enrollsvc_repl/enrolldb
-HCP_RUN_ATTEST_UPDATE_TIMER := 10
-#HCP_RUN_ATTEST_UWSGI := uwsgi_python3
-#HCP_RUN_ATTEST_UWSGI_PORT := 8080
-#HCP_RUN_ATTEST_UWSGI_FLAGS := --http :8080 --stats :8081
-#HCP_RUN_ATTEST_UWSGI_OPTIONS := --processes 2 --threads 2
-#HCP_RUN_ATTEST_XTRA_REPL :=
-HCP_RUN_ATTEST_XTRA_HCP := -p 8080:8080 -p 8081:8081
+HCP_RUN_ATTEST_REMOTE_REPO ?= git://enrollsvc_repl/enrolldb
+HCP_RUN_ATTEST_UPDATE_TIMER ?= 10
+#HCP_RUN_ATTEST_UWSGI ?= uwsgi_python3
+#HCP_RUN_ATTEST_UWSGI_PORT ?= 8080
+#HCP_RUN_ATTEST_UWSGI_FLAGS ?= --http :8080 --stats :8081
+#HCP_RUN_ATTEST_UWSGI_OPTIONS ?= --processes 2 --threads 2
+#HCP_RUN_ATTEST_XTRA_REPL ?=
+HCP_RUN_ATTEST_XTRA_HCP ?= --publish=8080:8080 --publish=8081:8081
 
-HCP_RUN_SWTPM_ENROLL_HOSTNAME := example_host.wherever.xyz
-HCP_RUN_SWTPM_ENROLL_URL := http://enrollsvc_mgmt:5000/v1/add
+HCP_RUN_SWTPM_ENROLL_HOSTNAME ?= example_host.wherever.xyz
+HCP_RUN_SWTPM_ENROLL_URL ?= http://enrollsvc_mgmt:5000/v1/add
+HCP_RUN_SWTPM_XTRA ?= --publish=9876:9876
 
-HCP_RUN_CLIENT_TPM2TOOLS_TCTI := swtpm:host=swtpmsvc,port=9876
-HCP_RUN_CLIENT_ATTEST_URL := http://attestsvc_hcp:8080
+HCP_RUN_CLIENT_TPM2TOOLS_TCTI ?= swtpm:host=swtpmsvc,port=9876
+HCP_RUN_CLIENT_ATTEST_URL ?= http://attestsvc_hcp:8080
