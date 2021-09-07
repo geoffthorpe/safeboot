@@ -42,6 +42,14 @@
 #   consumption. E.g. "prod", or "prod-$VERSION" for some deployment versioning
 #   scheme, or "prod-$DEPLOYMENT" if the branch/build is specific to a
 #   particular site, region, use-case, instance, etc.
+#
+# * This also takes extra steps to isolate the testing from concurrent/cotenant
+#   activities;
+#    - removing "--publish" entries so that services host ports aren't
+#      forwarded to containers. (Services and functions within the same run get
+#      their own private network and can hit each other there. The binding of
+#      host ports is only to support exposing services for extrernal access
+#      and/or to help dev and debug.)
 
 set -e
 
@@ -57,6 +65,15 @@ done
 export SAFEBOOT_HCP_DSPACE=${HCP_BUILD_PREFIX:-$DPREFIX}
 export SAFEBOOT_HCP_DTAG=${HCP_BUILD_TAG:-ci_build}
 export V=1
+
+# Set harmless and meaningless --env's to these variables so that the defaults
+# (which contain --publish) don't get used.
+HARMLESSP=--env=HARMLESSP=harmlessp
+export HCP_RUN_ENROLL_XTRA_MGMT=$HARMLESSP
+export HCP_RUN_ENROLL_XTRA_REPL=$HARMLESSP
+export HCP_RUN_ATTEST_XTRA_REPL=$HARMLESSP
+export HCP_RUN_ATTEST_XTRA_HCP=$HARMLESSP
+export HCP_RUN_SWTPM_XTRA=$HARMLESSP
 
 # When we run the tools (rather than building them), we deliberately put the
 # stdout and stderr into temporary files. Why? Well, we use a trap to make sure
