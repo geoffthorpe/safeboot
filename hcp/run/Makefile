@@ -302,7 +302,8 @@ $(name)_start$(csuffix): $(ctarget)
 )
 # Service stop
 $(if $(isFunction),,\
-$(name)_stop: $(name)_stop$(csuffix)
+$(if $(csuffix),\
+$(name)_stop: $(name)_stop$(csuffix))
 $(name)_stop$(csuffix): | $(HCP_RUN_LOGS)
 $(name)_stop$(csuffix):
 	$(if $(cstarted),$(if $(crunning),\
