@@ -137,6 +137,10 @@ ifeq (,$(HCP_RUN_DSPACE))
 $(error HCP_RUN_DSPACE must be set to the docker namespace prefix)
 endif
 
+ifeq (,$(HCP_RUN_DTAG))
+$(error HCP_RUN_DTAG must be set to the required docker image tag)
+endif
+
 ifeq (,$(HCP_RUN_DNETWORKS))
 $(error HCP_RUN_DNETWORKS must be 'none' or a list of Docker networks)
 else
@@ -185,6 +189,14 @@ default:
 	@echo "   make client_start    # run the attestation client"
 	@echo "   make caboodle_start  # bash shell in a 'caboodle' container"
 	@echo ""
+
+# The source dev/debug workflow gets "DTAG" from hcp/settings.mk (or the
+# caller), then prepends ":" to it, then goes on to build lots of images
+# accordingly. We may be called by that workflow, so DTAG may already have a
+# ":" prefix.  Alternatively we may be called directly, in which case the
+# caller (or direct.mk, or HCP_RUN_SETTINGS) would be passing us a DTAG that
+# _doesn't_ have a ":" prefix. <sigh> This makes sure we have exactly one.
+HCP_RUN_DTAG := $(shell echo $(HCP_RUN_DTAG) | sed -e "s/^:*/:/")
 
 # Declare the sub-directories we create and use inside HCP_RUN_TOP.
 HCP_RUN_STATE := $(HCP_RUN_TOP)/state
@@ -327,7 +339,7 @@ define hcp_run_create
 $(eval prefix := $(strip $1))
 $(eval name := $($(prefix)_NAME))
 $(eval fullName := $(HCP_RUN_DSPACE)$(name))
-$(eval imgName := $(HCP_RUN_DSPACE)$(name)$(SAFEBOOT_HCP_DTAG))
+$(eval imgName := $(HCP_RUN_DSPACE)$(name)$(HCP_RUN_DTAG))
 $(eval state := $(HCP_RUN_STATE)/$(name))
 $(eval containers := $($(prefix)_CONTAINERS))
 $(eval cmdInit := $(strip $($(prefix)_CMD_INIT)))
