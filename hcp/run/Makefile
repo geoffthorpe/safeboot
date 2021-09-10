@@ -145,6 +145,14 @@ HCP_RUN_DNETWORKS :=
 endif
 endif
 
+ifeq (,$(HCP_RUN_ENROLL_SIGNER))
+$(error HCP_RUN_ENROLL_SIGNER must be a directory with key.{priv,pem} for asset signing.)
+endif
+
+ifeq (,$(HCP_RUN_CLIENT_VERIFIER))
+$(error HCP_RUN_CLIENT_VERIFIER must be a directory with key.pem for sig-validation.)
+endif
+
 ifeq (,$(HCP_RUN_UTIL_IMAGE))
 HCP_RUN_UTIL_IMAGE := debian:latest
 $(info HCP_RUN_UTIL_IMAGE wasn't defined, using $(HCP_RUN_UTIL_IMAGE))
@@ -182,17 +190,14 @@ default:
 HCP_RUN_STATE := $(HCP_RUN_TOP)/state
 HCP_RUN_MGMT := $(HCP_RUN_TOP)/mgmt
 HCP_RUN_LOGS := $(HCP_RUN_TOP)/logs
-HCP_RUN_MDIRS := $(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS)
-$(HCP_RUN_MDIRS): | $(HCP_RUN_TOP)
+HCP_RUN_CREDS := $(HCP_RUN_TOP)/creds
+HCP_RUN_MDIRS += $(HCP_RUN_TOP) $(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS) $(HCP_RUN_CREDS)
+$(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS) $(HCP_RUN_CREDS): | $(HCP_RUN_TOP)
 
 # Anything generating goodies under these directories should put a dependency
-# from clean_hcp_run to some rule of their own to clean their stuff out. BTW we
-# add HCP_RUN_TOP to HCP_RUN_MDIRS _after_ declaring this rule, otherwise this
-# construction fails.
+# from clean_hcp_run to some rule of their own to clean their stuff out.
 clean_hcp_run:
 	$Qrm -rf $(HCP_RUN_TOP)
-
-HCP_RUN_MDIRS += $(HCP_RUN_TOP)
 
 # Capture listings of containers, running and otherwise
 HCP_RUN_LIVE_CONTAINERS := $(shell docker container ls \
@@ -399,6 +404,9 @@ HCP_RUN_ENROLL_MOUNT := /enrollsvc
 HCP_RUN_ENROLL_MOUNT_mgmt := :rw
 HCP_RUN_ENROLL_MOUNT_repl := :ro
 HCP_RUN_ENROLL_ARGS := --env HCP_ENROLLSVC_STATE_PREFIX="$(HCP_RUN_ENROLL_MOUNT)"
+HCP_RUN_ENROLL_ARGS += -v $(HCP_RUN_ENROLL_SIGNER):/signer
+HCP_RUN_ENROLL_ARGS += --env SIGNING_KEY_PRIV=/signer/key.priv
+HCP_RUN_ENROLL_ARGS += --env SIGNING_KEY_PUB=/signer/key.pem
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_UWSGI="$(HCP_RUN_ENROLL_UWSGI)"
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_UWSGI_PORT="$(HCP_RUN_ENROLL_UWSGI_PORT)"
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_UWSGI_FLAGS="$(HCP_RUN_ENROLL_UWSGI_FLAGS)"
@@ -407,7 +415,6 @@ HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_GITDAEMON="$(HCP_RUN_ENROLL_GITDAEMO
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_GITDAEMON_FLAGS="$(HCP_RUN_ENROLL_GITDAEMON_FLAGS)"
 HCP_RUN_ENROLL_ARGS_mgmt := $(HCP_RUN_ENROLL_ARGS) $(HCP_RUN_ENROLL_XTRA_MGMT)
 HCP_RUN_ENROLL_ARGS_repl := $(HCP_RUN_ENROLL_ARGS) $(HCP_RUN_ENROLL_XTRA_REPL)
-
 $(eval $(call hcp_run_create,HCP_RUN_ENROLL))
 
 # Declare the attestation service
@@ -447,6 +454,8 @@ HCP_RUN_CLIENT_CMD_INIT :=
 HCP_RUN_CLIENT_CMD := /hcp/client/run_client.sh
 HCP_RUN_CLIENT_ARGS := --env TPM2TOOLS_TCTI="$(HCP_RUN_CLIENT_TPM2TOOLS_TCTI)"
 HCP_RUN_CLIENT_ARGS += --env HCP_CLIENT_ATTEST_URL="$(HCP_RUN_CLIENT_ATTEST_URL)"
+HCP_RUN_CLIENT_ARGS += -v $(HCP_RUN_CLIENT_VERIFIER):/verifier
+HCP_RUN_CLIENT_ARGS += --env ENROLL_SIGN_ANCHOR=/verifier/key.pem
 HCP_RUN_CLIENT_ARGS += -v $(shell pwd):/escapehatch
 $(eval $(call hcp_run_create,HCP_RUN_CLIENT))
 
@@ -461,3 +470,16 @@ $(eval $(call hcp_run_create,HCP_RUN_CABOODLE))
 # Same comment as the $(MDIRS) target in safeboot/Makefile
 $(HCP_RUN_MDIRS):
 	$Qmkdir $@
+
+# Special handling. If HCP_RUN_ENROLL_SIGNER_AUTOCREATE is "yes", we want to
+# create a lazy-init rule to construct the asset-signing key.
+ifeq (yes,$(HCP_RUN_ENROLL_SIGNER_AUTOCREATE))
+$(HCP_RUN_enrollsvc_TGT_INIT): | $(HCP_RUN_ENROLL_SIGNER)/key.pem
+$(HCP_RUN_enrollsvc_TGT_INIT): | $(HCP_RUN_CLIENT_VERIFIER)/key.pem
+$(HCP_RUN_ENROLL_SIGNER)/key.priv: | $(HCP_RUN_ENROLL_SIGNER)
+	$Qopenssl genrsa -out $@
+$(HCP_RUN_ENROLL_SIGNER)/key.pem: $(HCP_RUN_ENROLL_SIGNER)/key.priv
+	$Qopenssl rsa -pubout -in $< -out $@
+$(HCP_RUN_CLIENT_VERIFIER)/key.pem: $(HCP_RUN_ENROLL_SIGNER)/key.pem | $(HCP_RUN_CLIENT_VERIFIER)
+	$Qcp $< $@
+endif
