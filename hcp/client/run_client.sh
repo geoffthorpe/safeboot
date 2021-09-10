@@ -6,6 +6,7 @@ set -e
 echo "Running '$0'"
 echo "    HCP_CLIENT_ATTEST_URL=$HCP_CLIENT_ATTEST_URL"
 echo "       TPM2TOOLS_TCTI=$TPM2TOOLS_TCTI"
+echo "   ENROLL_SIGN_ANCHOR=$ENROLL_SIGN_ANCHOR"
 
 if [[ -z "$HCP_CLIENT_ATTEST_URL" ]]; then
 	echo "Error, HCP_CLIENT_ATTEST_URL (\"$HCP_CLIENT_ATTEST_URL\") is not set"
@@ -13,6 +14,10 @@ if [[ -z "$HCP_CLIENT_ATTEST_URL" ]]; then
 fi
 if [[ -z "$TPM2TOOLS_TCTI" ]]; then
 	echo "Error, TPM2TOOLS_TCTI (\"$TPM2TOOLS_TCTI\") is not set"
+	exit 1
+fi
+if [[ -z "$ENROLL_SIGN_ANCHOR" || ! -f "$ENROLL_SIGN_ANCHOR" ]]; then
+	echo "Error, ENROLL_SIGN_ANCHOR is not a valid file" >&2
 	exit 1
 fi
 
@@ -45,6 +50,7 @@ cd $DIR
 # passed in from "docker run" cmd-line
 export TPM2TOOLS_TCTI
 export HCP_CLIENT_ATTEST_URL
+export ENROLL_SIGN_ANCHOR
 
 echo "Running 'client'"
 
@@ -88,12 +94,19 @@ do
 	sleep 5
 done
 
-echo "Extracting the attestation result;"
-tar xvf secrets || \
-	(echo "Error of some kind." && \
+(
+	echo "Extracting the attestation result;" && \
+	tar xvf secrets && \
+	echo "Signature-checking the received assets;" && \
+	./sbin/tpm2-attest verify-unsealed .
+) || \
+(
+	echo "Error of some kind." && \
 	echo "Copying 'secrets' out to caller's directory for inspection" && \
 	SECRETS_NAME=secrets.`date +%Y-%m-%d` && \
 	echo "It will be called $SECRETS_NAME" && \
-	cp secrets /escapehatch/$SECRETS_NAME && exit 1)
+	cp secrets /escapehatch/$SECRETS_NAME && exit 1
+)
+
 
 echo "Client ending"
