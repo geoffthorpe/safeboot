@@ -65,12 +65,14 @@ if [[ -z "$FLASK_USER" || ! -d "/home/$FLASK_USER" ]]; then
 	echo "Error, FLASK_USER (\"$FLASK_USER\") is not a valid user" >&2
 	exit 1
 fi
-if [[ -z "$SIGNING_KEY_PRIV" || ! -f "$SIGNING_KEY_PRIV" ]]; then
-	echo "Error, SIGNING_KEY_PRIV is not a valid file" >&2
+if [[ -z "$HCP_RUN_ENROLL_SIGNER" || ! -d "$HCP_RUN_ENROLL_SIGNER" ]]; then
+	echo "Error, HCP_RUN_ENROLL_SIGNER is not a valid directory" >&2
 	exit 1
 fi
-if [[ -z "$SIGNING_KEY_PUB" || ! -f "$SIGNING_KEY_PUB" ]]; then
-	echo "Error, SIGNING_KEY_PUB is not a valid file" >&2
+export SIGNING_KEY_PUB=$HCP_RUN_ENROLL_SIGNER/key.pem
+export SIGNING_KEY_PRIV=$HCP_RUN_ENROLL_SIGNER/key.priv
+if [[ ! -f "$SIGNING_KEY_PUB" || ! -f "$SIGNING_KEY_PRIV" ]]; then
+	echo "Error, HCP_RUN_ENROLL_SIGNER does not contain valid creds" >&2
 	exit 1
 fi
 
@@ -101,8 +103,7 @@ if [[ `whoami` == "root" ]]; then
 	echo "DB_USER=$DB_USER" >> /etc/environment
 	echo "FLASK_USER=$FLASK_USER" >> /etc/environment
 	echo "HCP_ENROLLSVC_STATE_PREFIX=$HCP_ENROLLSVC_STATE_PREFIX" >> /etc/environment
-	echo "SIGNING_KEY_PRIV=$SIGNING_KEY_PRIV" >> /etc/environment
-	echo "SIGNING_KEY_PUB=$SIGNING_KEY_PUB" >> /etc/environment
+	echo "HCP_RUN_ENROLL_SIGNER=$HCP_RUN_ENROLL_SIGNER" >> /etc/environment
 	echo "HCP_RUN_ENROLL_UWSGI=$HCP_RUN_ENROLL_UWSGI" >> /etc/environment
 	echo "HCP_RUN_ENROLL_UWSGI_PORT=$HCP_RUN_ENROLL_UWSGI_PORT" >> /etc/environment
 	echo "HCP_RUN_ENROLL_UWSGI_FLAGS=$HCP_RUN_ENROLL_UWSGI_FLAGS" >> /etc/environment
@@ -117,9 +118,8 @@ echo "Running '$0'" >&2
 echo "     HCP_ENROLLSVC_STATE_PREFIX=$HCP_ENROLLSVC_STATE_PREFIX" >&2
 echo "                        DB_USER=$DB_USER" >&2
 echo "                     FLASK_USER=$FLASK_USER" >&2
-echo "               SIGNING_KEY_PRIV=$SIGNING_KEY_PRIV" >&2
-echo "                SIGNING_KEY_PUB=$SIGNING_KEY_PUB" >&2
 echo "                    DB_IN_SETUP=$DB_IN_SETUP" >&2
+echo "          HCP_RUN_ENROLL_SIGNER=$HCP_RUN_ENROLL_SIGNER" >&2
 echo "           HCP_RUN_ENROLL_UWSGI=$HCP_RUN_ENROLL_UWSGI" >&2
 echo "      HCP_RUN_ENROLL_UWSGI_PORT=$HCP_RUN_ENROLL_UWSGI_PORT" >&2
 echo "     HCP_RUN_ENROLL_UWSGI_FLAGS=$HCP_RUN_ENROLL_UWSGI_FLAGS" >&2
@@ -140,11 +140,8 @@ echo "                    EK_BASENAME=$EK_BASENAME" >&2
 echo "                      REPO_PATH=$REPO_PATH" >&2
 echo "                        EK_PATH=$EK_PATH" >&2
 echo "                  REPO_LOCKPATH=$REPO_LOCKPATH" >&2
-
-# These settings aren't (just) for our consumption, they need to be exported to
-# child processes.
-export SIGNING_KEY_PRIV
-export SIGNING_KEY_PUB
+echo "               SIGNING_KEY_PRIV=$SIGNING_KEY_PRIV" >&2
+echo "                SIGNING_KEY_PUB=$SIGNING_KEY_PUB" >&2
 
 # Basic functions
 
