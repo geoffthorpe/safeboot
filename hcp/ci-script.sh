@@ -53,6 +53,11 @@
 
 set -e
 
+# If you are debugging the ci-script, define this. It will bypass the cleanup
+# phase, and will also output the one-off settings to "debug.ci-script" so it
+# can be sourced from the command-line.
+#DEBUG_CI=yes
+
 # Weird. Docker insists on lower-case names+tags for images, but mktemp has no
 # obvious way to eliminate upper-case. So we loop until we get what we want...
 while /bin/true; do
@@ -87,6 +92,22 @@ export HCP_RUN_SWTPM_XTRA=$HARMLESSP
 # and then replay it to stdout/stderr after the clean!
 DEFER_STDOUT=`mktemp`
 DEFER_STDERR=`mktemp`
+
+if [[ -n "$DEBUG_CI" ]]; then
+cat > debug.ci-script <<EOF
+export SAFEBOOT_HCP_DSPACE=${HCP_BUILD_PREFIX:-$DPREFIX}
+export SAFEBOOT_HCP_DTAG=${HCP_BUILD_TAG:-ci_build}
+export V=1
+HARMLESSP=--env=HARMLESSP=harmlessp
+export HCP_RUN_ENROLL_XTRA_MGMT=$HARMLESSP
+export HCP_RUN_ENROLL_XTRA_REPL=$HARMLESSP
+export HCP_RUN_ATTEST_XTRA_REPL=$HARMLESSP
+export HCP_RUN_ATTEST_XTRA_HCP=$HARMLESSP
+export HCP_RUN_SWTPM_XTRA=$HARMLESSP
+export DEFER_STDOUT=$DEFER_STDOUT
+export DEFER_STDERR=$DEFER_STDERR
+EOF
+fi
 
 # This gets set to the stage ("build", "basic_test") that fails, if a stage
 # fails. As such, we can perform cleanup and still propagate the failure
@@ -158,7 +179,9 @@ function cleanup_trap
 	exit 0
 }
 
+if [[ -z "$DEBUG_CI" ]]; then
 trap cleanup_trap EXIT
+fi
 
 echo "======================="
 echo "Running HCP 'CI' script"
