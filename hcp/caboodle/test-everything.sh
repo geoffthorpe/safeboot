@@ -26,7 +26,7 @@ export HCP_SWTPMSVC_ENROLL_HOSTNAME=localhost
 export HCP_SWTPMSVC_ENROLL_URL=http://localhost:5000/v1/add
 export HCP_RUN_CLIENT_VERIFIER=/creds/asset-verifier
 export HCP_CLIENT_ATTEST_URL=http://localhost:8080
-export TPM2TOOLS_TCTI=swtpm:host=localhost,port=9876
+export HCP_RUN_CLIENT_TPM2TOOLS_TCTI=swtpm:host=localhost,port=9876
 
 # HCP Enrollment Service.
 /hcp/enrollsvc/setup_enrolldb.sh
