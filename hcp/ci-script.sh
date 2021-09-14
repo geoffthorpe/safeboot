@@ -207,3 +207,13 @@ echo "NB: stdout/stderr are deferred until the end of the log output."
 echo ""
 make runall > $DEFER_STDOUT 2> $DEFER_STDERR || itfailed=basic_test
 fi
+
+if [[ -z $itfailed ]]; then
+echo ""
+echo "---------------------------------------------------------"
+echo "Running caboodle test case with 'make caboodletest_start'"
+echo "---------------------------------------------------------"
+echo "NB: stdout/stderr are deferred until the end of the log output."
+echo ""
+HCP_RUN_CABOODLE_TEST=1 make caboodle_start >> $DEFER_STDOUT 2>> $DEFER_STDERR || itfailed=caboodle_test
+fi

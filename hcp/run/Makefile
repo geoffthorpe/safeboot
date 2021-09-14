@@ -470,11 +470,17 @@ HCP_RUN_CLIENT_ARGS += --env HCP_CLIENT_ATTEST_URL="$(HCP_RUN_CLIENT_ATTEST_URL)
 HCP_RUN_CLIENT_ARGS += -v $(shell pwd):/escapehatch
 $(eval $(call hcp_run_create,HCP_RUN_CLIENT))
 
-# Declare the caboodle function
+# Declare the caboodle function. If HCP_RUN_CABOODLE_TEST is defined, this runs
+# "test-everything.sh", otherwise (by default), this runs "bash" (with "-it").
 HCP_RUN_CABOODLE_NAME := caboodle
 HCP_RUN_CABOODLE_CMD_INIT :=
+ifeq (,$(HCP_RUN_CABOODLE_TEST))
 HCP_RUN_CABOODLE_CMD := bash
 HCP_RUN_CABOODLE_ARGS := -it
+else
+HCP_RUN_CABOODLE_CMD := /test-everything.sh
+HCP_RUN_CABOODLE_ARGS :=
+endif
 HCP_RUN_CABOODLE_ARGS += -v $(shell pwd):/escapehatch
 $(eval $(call hcp_run_create,HCP_RUN_CABOODLE))
 
