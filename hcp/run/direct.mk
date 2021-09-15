@@ -56,7 +56,8 @@ HCP_RUN_DNETWORKS ?= $(HCP_RUN_DSPACE)network_hcp
 HCP_RUN_ASSIST_CLEANUP ?= $(TOP)/hcp/assist_cleanup.sh
 
 # In the dev/debug workflow, the default "util_image" (for doing
-# container-based cleanup) is this;
+# container-based cleanup) comes from hcp/settings.mk, which sets
+# SAFEBOOT_HCP_BASE to this value. (Note, keep them synchronized!)
 HCP_RUN_UTIL_IMAGE ?= debian:bullseye-slim
 
 ##########################
