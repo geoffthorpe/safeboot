@@ -25,6 +25,10 @@ endif
 #   "Docker semantics" apply here (in terms of whether it is pulling an image
 #   or a Dockerfile, whether it pulls a named image from a default repository
 #   or one that is specified explicitly, etc).
+# - This baseline container image also gets used as a "utility" container, used
+#   particularly when needing to run cleanup shell-commands and "any image will
+#   do". NB: this should be kept synchronized with
+#   hcp/run/direct.mk::HCP_RUN_UTIL_IMAGE
 SAFEBOOT_HCP_BASE ?= debian:bullseye-slim
 #SAFEBOOT_HCP_BASE ?= internal.dockerhub.mycompany.com/library/debian:buster-slim
 
