@@ -30,7 +30,7 @@ while /bin/true; do
 	cd $HCP_ATTESTSVC_STATE_PREFIX
 	cd next
 	datetime_log "updating"
-	if (git fetch origin && git merge origin/master); then
+	if (git fetch twin && git fetch origin && git merge origin/master); then
 		cd $HCP_ATTESTSVC_STATE_PREFIX
 		cp -P current thirdwheel
 		cp -T -P next current
