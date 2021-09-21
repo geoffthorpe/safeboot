@@ -450,6 +450,9 @@ $(name)_init: $(initTgt)
 $(if $(started),$(if $(FORCE),\
 $(name)_clean: $(name)_stop
 ))
+$(if $(initDone),\
+clean_hcp_run: $(name)_clean
+)
 $(name)_clean:
 	$(if $(started),$(if $(FORCE),,\
 		$Qecho "Error, the '$(name)' service is running. Stop it before cleaning."
