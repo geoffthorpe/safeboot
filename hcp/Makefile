@@ -164,37 +164,16 @@ $(HCP_RUN_client_TGT_START) $(HCP_RUN_caboodle_TGT_START): \
 clean_hcp_enrollsvc: enrollsvc_clean
 clean_hcp_attestsvc: attestsvc_clean
 clean_hcp_swtpmsvc: swtpmsvc_clean
-# Inter-service dependencies;
-$(HCP_RUN_attestsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_repl_TGT_START)
-$(HCP_RUN_swtpmsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_mgmt_TGT_START)
-$(HCP_RUN_client_TGT_START): | $(HCP_RUN_swtpmsvc_TGT_START)
-$(HCP_RUN_client_TGT_START): | $(HCP_RUN_attestsvc_hcp_TGT_START)
 
-# Rule to run everything
-startall: enrollsvc_start attestsvc_start swtpmsvc_start client_start
-stopall: enrollsvc_stop attestsvc_stop swtpmsvc_stop
+# Rule to run everything _and then stop everything_. This requires a recursive
+# make for the stopping phase, which isn't generally safe in hcp/run/Makefile
+# (it may be used directly with "make -f ..." and we can't reproduce the make
+# invocation). In the source, dev/debug workflow however, we can. So we put
+# this rule here, the others (initall, clearall, startall, stopall) go in
+# hcp/run/Makefile.
 runall: startall
 	$Qecho "Services started and client completed, tearing down"
 	$Q$(MAKE) stopall
-clearall: enrollsvc_clean attestsvc_clean swtpmsvc_clean
-
-# This target allows you to shell into a running container (using docker exec).
-# If CID is set, it attempts to shell into the container it identifies,
-# otherwise a listing of running containers is given.
-enter:
-ifeq (,$(CID))
-	$Qecho "To shell into a running container, select the desired container by setting CID to"
-	$Qecho "the corresponding 'CONTAINER ID'. Note, you only need to specify enough of the"
-	$Qecho "initial hexadecimal characters to distinguish it from other containers."
-	$Qecho
-	$Qecho "Currently running containers in this project;"
-	$Qdocker container ls --filter=label=$(SAFEBOOT_HCP_DSPACE)all
-	$Qecho
-	$Qecho "E.g.:   make enter CID=f00d"
-	$Qecho
-else
-	$Qdocker exec -it $(CID) /bin/bash
-endif
 
 # This can be used as an order-only dependency (after a "|") for all "clean_*"
 # rules that try to remove a container image. Why? Because even if we always

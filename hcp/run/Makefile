@@ -76,6 +76,16 @@ endif
 #       namespaces). It must be present and this variable must point to it.
 #
 # Optional inputs;
+#   HCP_RUN_SERVICES
+#     - the list of services that are enabled on the current host, without any
+#       "svc" suffix. The default is "enroll attest swtpm". This affects rules
+#       such as initall, clearall, stopall, startall, and controls whether any
+#       init rules depend on other start rules. E.g. by default, attestsvc_init
+#       depends on enrollsvc_start (if the enrollment service isn't running,
+#       the attestation service can't initialize). But if the enrollment
+#       service is running on a different machine (and "enroll" isn't part of
+#       HCP_RUN_SERVICES), then we don't make such a dependency - we have to
+#       hope that the operator of the multiple hosts is coordinating things.
 #   HCP_RUN_UTIL_IMAGE
 #     - the assist_cleanup.sh script (see HCP_RUN_ASSIST_CLEANUP) needs to
 #       start a container and any "normal" Docker image will do, including any
@@ -130,7 +140,7 @@ $(error HCP_RUN_TOP must be set for run-time state.)
 endif
 
 ifneq (yes,$(shell test -x "$(HCP_RUN_ASSIST_CLEANUP)" > /dev/null 2>&1 && echo yes))
-$(error HCP_RUN_ASSIST_CLEANUP must be point to the assist_cleanup.sh script)
+$(error HCP_RUN_ASSIST_CLEANUP must point to the assist_cleanup.sh script)
 endif
 
 ifeq (,$(HCP_RUN_DSPACE))
@@ -174,8 +184,49 @@ HCP_RUN_UTIL_IMAGE := debian:latest
 $(info HCP_RUN_UTIL_IMAGE wasn't defined, using $(HCP_RUN_UTIL_IMAGE))
 endif
 
-# For good measure, provide a default rule that lists the targets that can be
-# used!
+ifeq (,$(HCP_RUN_SERVICES))
+HCP_RUN_SERVICES := enroll attest swtpm
+$(info HCP_RUN_SERVICES wasn't defined, using $(HCP_RUN_SERVICES))
+endif
+
+# The source dev/debug workflow gets "DTAG" from hcp/settings.mk (or the
+# caller), then prepends ":" to it, then goes on to build lots of images
+# accordingly. We may be called by that workflow, so DTAG may already have a
+# ":" prefix.  Alternatively we may be called directly, in which case the
+# caller (or direct.mk, or HCP_RUN_SETTINGS) would be passing us a DTAG that
+# _doesn't_ have a ":" prefix. <sigh> This makes sure we have exactly one.
+HCP_RUN_DTAG := $(shell echo $(HCP_RUN_DTAG) | sed -e "s/^:*/:/")
+
+# Declare the sub-directories we create and use inside HCP_RUN_TOP.
+HCP_RUN_STATE := $(HCP_RUN_TOP)/state
+HCP_RUN_MGMT := $(HCP_RUN_TOP)/mgmt
+HCP_RUN_LOGS := $(HCP_RUN_TOP)/logs
+HCP_RUN_CREDS := $(HCP_RUN_TOP)/creds
+HCP_RUN_MDIRS += $(HCP_RUN_TOP) $(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS) $(HCP_RUN_CREDS)
+$(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS) $(HCP_RUN_CREDS): | $(HCP_RUN_TOP)
+
+# Capture listings of containers, running and otherwise
+HCP_RUN_LIVE_CONTAINERS := $(shell docker container ls \
+			--filter label=$(HCP_RUN_DSPACE)all \
+			--format "{{.Names}}" 2> /dev/null)
+HCP_RUN_ALL_CONTAINERS := $(shell docker container ls -a \
+			--filter label=$(HCP_RUN_DSPACE)all \
+			--format "{{.Names}}" 2> /dev/null)
+
+# $Q is used to prefix all recipe lines, which by default evaluates to "@",
+# unless V (for Verbose) is defined, in which case it evaluates empty. I.e.
+# this controls whether or not all recipe lines are echoed to stdout by make.
+# We have an in-between requirement, to display specifically the Docker
+# commands being issued, so that an admin or devel can copy and paste (and
+# modify) the command lines manually. We use the "SHOW" variable to trigger
+# this choice, and use $S as the corresponding prefix.
+ifeq (,$V$(SHOW))
+S := @
+else
+S :=
+endif
+
+# Provide a default rule that lists the targets that can be used!
 default:
 	@echo ""
 	@echo "Direct usage of safeboot 'hcp/run' operational rules."
@@ -202,47 +253,38 @@ default:
 	@echo "   make caboodle_start  # bash shell in a 'caboodle' container"
 	@echo ""
 
-# The source dev/debug workflow gets "DTAG" from hcp/settings.mk (or the
-# caller), then prepends ":" to it, then goes on to build lots of images
-# accordingly. We may be called by that workflow, so DTAG may already have a
-# ":" prefix.  Alternatively we may be called directly, in which case the
-# caller (or direct.mk, or HCP_RUN_SETTINGS) would be passing us a DTAG that
-# _doesn't_ have a ":" prefix. <sigh> This makes sure we have exactly one.
-HCP_RUN_DTAG := $(shell echo $(HCP_RUN_DTAG) | sed -e "s/^:*/:/")
+# Various "<verb>all" rules
+initall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_init)
+cleanall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_clean)
+startall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_start)
+stopall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_stop)
 
-# Declare the sub-directories we create and use inside HCP_RUN_TOP.
-HCP_RUN_STATE := $(HCP_RUN_TOP)/state
-HCP_RUN_MGMT := $(HCP_RUN_TOP)/mgmt
-HCP_RUN_LOGS := $(HCP_RUN_TOP)/logs
-HCP_RUN_CREDS := $(HCP_RUN_TOP)/creds
-HCP_RUN_MDIRS += $(HCP_RUN_TOP) $(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS) $(HCP_RUN_CREDS)
-$(HCP_RUN_STATE) $(HCP_RUN_MGMT) $(HCP_RUN_LOGS) $(HCP_RUN_CREDS): | $(HCP_RUN_TOP)
+# This target allows you to shell into a running container (using docker exec).
+# If CID is set, it attempts to shell into the container it identifies,
+# otherwise a listing of running containers is given.
+enter:
+ifeq (,$(CID))
+	$Qecho "To shell into a running container, select the desired container by setting CID to"
+	$Qecho "the corresponding 'CONTAINER ID'. Note, you only need to specify enough of the"
+	$Qecho "initial hexadecimal characters to distinguish it from other containers."
+	$Qecho
+	$Qecho "Currently running containers in this project;"
+	$Qdocker container ls --filter=label=$(HCP_RUN_DSPACE)all
+	$Qecho
+	$Qecho "E.g.:   make enter CID=f00d"
+	$Qecho
+else
+	$Qdocker exec -it $(CID) /bin/bash
+endif
 
 # Anything generating goodies under these directories should put a dependency
-# from clean_hcp_run to some rule of their own to clean their stuff out.
+# from clean_hcp_run to some rule of their own to clean their stuff out. BTW,
+# we should not convert this to use ASSIST_CLEANUP! Anything created by
+# containers (with weird permissioning side-effects) should be cleaned up by
+# service-specific cleanup rules, declaring themselves as dependencies for this
+# target.
 clean_hcp_run:
 	$Qrm -rf $(HCP_RUN_TOP)
-
-# Capture listings of containers, running and otherwise
-HCP_RUN_LIVE_CONTAINERS := $(shell docker container ls \
-			--filter label=$(HCP_RUN_DSPACE)all \
-			--format "{{.Names}}" 2> /dev/null)
-HCP_RUN_ALL_CONTAINERS := $(shell docker container ls -a \
-			--filter label=$(HCP_RUN_DSPACE)all \
-			--format "{{.Names}}" 2> /dev/null)
-
-# $Q is used to prefix all recipe lines, which by default evaluates to "@",
-# unless V (for Verbose) is defined, in which case it evaluates empty. I.e.
-# this controls whether or not all recipe lines are echoed to stdout by make.
-# We have an in-between requirement, to display specifically the Docker
-# commands being issued, so that an admin or devel can copy and paste (and
-# modify) the command lines manually. We use the "SHOW" variable to trigger
-# this choice, and use $S as the corresponding prefix.
-ifeq (,$V$(SHOW))
-S := @
-else
-S :=
-endif
 
 # hcp_run_create() defines a service or function and creates the rules for
 # initializing, cleaning, starting, and stopping it. The properties are defined
@@ -440,7 +482,7 @@ HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_GITDAEMON="$(HCP_RUN_ENROLL_GITDAEMO
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_GITDAEMON_FLAGS="$(HCP_RUN_ENROLL_GITDAEMON_FLAGS)"
 HCP_RUN_ENROLL_ARGS_mgmt := $(HCP_RUN_ENROLL_ARGS) $(HCP_RUN_ENROLL_XTRA_MGMT)
 HCP_RUN_ENROLL_ARGS_repl := $(HCP_RUN_ENROLL_ARGS) $(HCP_RUN_ENROLL_XTRA_REPL)
-$(eval $(call hcp_run_create,HCP_RUN_ENROLL))
+$(if $(filter enroll,$(HCP_RUN_SERVICES)),$(eval $(call hcp_run_create,HCP_RUN_ENROLL)))
 
 # Declare the attestation service
 HCP_RUN_ATTEST_NAME := attestsvc
@@ -460,7 +502,7 @@ HCP_RUN_ATTEST_ARGS += --env SAFEBOOT_UWSGI_FLAGS="$(HCP_RUN_ATTEST_UWSGI_FLAGS)
 HCP_RUN_ATTEST_ARGS += --env SAFEBOOT_UWSGI_OPTIONS="$(HCP_RUN_ATTEST_UWSGI_OPTIONS)"
 HCP_RUN_ATTEST_ARGS_repl := $(HCP_RUN_ATTEST_ARGS) $(HCP_RUN_ATTEST_XTRA_REPL)
 HCP_RUN_ATTEST_ARGS_hcp := $(HCP_RUN_ATTEST_ARGS) $(HCP_RUN_ATTEST_XTRA_HCP)
-$(eval $(call hcp_run_create,HCP_RUN_ATTEST))
+$(if $(filter attest,$(HCP_RUN_SERVICES)),$(eval $(call hcp_run_create,HCP_RUN_ATTEST)))
 
 # Declare the swtpm service
 HCP_RUN_SWTPM_NAME := swtpmsvc
@@ -471,7 +513,7 @@ HCP_RUN_SWTPM_ARGS := --env HCP_SWTPMSVC_STATE_PREFIX="$(HCP_RUN_SWTPM_MOUNT)"
 HCP_RUN_SWTPM_ARGS += --env HCP_SWTPMSVC_ENROLL_HOSTNAME="$(HCP_RUN_SWTPM_ENROLL_HOSTNAME)"
 HCP_RUN_SWTPM_ARGS += --env HCP_SWTPMSVC_ENROLL_URL="$(HCP_RUN_SWTPM_ENROLL_URL)"
 HCP_RUN_SWTPM_ARGS += $(HCP_RUN_SWTPM_XTRA)
-$(eval $(call hcp_run_create,HCP_RUN_SWTPM))
+$(if $(filter swtpm,$(HCP_RUN_SERVICES)),$(eval $(call hcp_run_create,HCP_RUN_SWTPM)))
 
 # Declare the client function
 HCP_RUN_CLIENT_NAME := client
@@ -497,6 +539,16 @@ HCP_RUN_CABOODLE_ARGS :=
 endif
 HCP_RUN_CABOODLE_ARGS += -v $(shell pwd):/escapehatch
 $(eval $(call hcp_run_create,HCP_RUN_CABOODLE))
+
+# Inter-service dependencies;
+$(if $(filter attest,$(HCP_RUN_SERVICES)),$(if $(filter enroll,$(HCP_RUN_SERVICES)),\
+$(HCP_RUN_attestsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_repl_TGT_START)))
+$(if $(filter swtpm,$(HCP_RUN_SERVICES)),$(if $(filter enroll,$(HCP_RUN_SERVICES)),\
+$(HCP_RUN_swtpmsvc_TGT_INIT): | $(HCP_RUN_enrollsvc_mgmt_TGT_START)))
+$(if $(filter swtpm,$(HCP_RUN_SERVICES)),\
+$(HCP_RUN_client_TGT_START): | $(HCP_RUN_swtpmsvc_TGT_START))
+$(if $(filter attest,$(HCP_RUN_SERVICES)),\
+$(HCP_RUN_client_TGT_START): | $(HCP_RUN_attestsvc_hcp_TGT_START))
 
 # Same comment as the $(MDIRS) target in safeboot/Makefile
 $(HCP_RUN_MDIRS):
