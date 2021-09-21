@@ -1,0 +1,88 @@
+This document describes the way we deal with versioning of service state. This
+is necessary so that versions of the HCP software, as they are deployed and
+upgraded over time, can deal with the state they are operating on, either by
+performing in-place upgrades, handling older formats/assumptions, or failing
+gracefully to invite administrator intervention.
+
+Nomenclature;
+
+ - <enrollsvc>
+   The state that is mounted at /enrollsvc in the enrollsvc containers.
+
+ - <attestsvc>
+   The state that is mounted at /attestsvc in the attestsvc containers.
+
+ - <major>:<minor>
+   Versions are expressed in this way.
+   <major> is a monotonic increasing integer used to mark a "major" version ID.
+   The assumption is that in-place upgrades and backward compatibility are not
+   possible across a major version change. I.e. if the software and the state
+   don't have a common major version, the software will bail out gracefully.
+   <minor> is a monotonic increasing integer that represents version differences
+   when <major> values match.
+
+Version tagging;
+
+ - <enrollsvc>/version
+   This version tag represents the enrollsvc state itself. I.e. if we rename the
+   git repository, or we replace it with some rqlite-style backend, this version
+   tag would reflect that in the <major> part.
+
+ - <enrollsvc>/enrolldb.git/version
+   If <enrollsvc>/version is such that the conventions defined in the current
+   document apply (e.g. that enrolldb.git exists), then this version tag is set
+   equal to <enrollsvc>/version. I.e. this is the version tag that gets
+   replicated, so that it cascades downstream to the clients (attestation
+   service instances, escrow/break-glass infrastructure, ...).
+
+ - <attestsvc>/{A,B}/version
+   This version is replicated from the enrollment service. It can be compared
+   against <attestsvc>/version for compatibility (and "next steps"). E.g. if
+   the enrollment database is significantly altered (or replaced with a non-git
+   solution), then the final update to enrolldb.git would be to bump the <major>
+   component of the version, so that cloning clients would pick this up and
+   "know" that a more significant upgrade process is required.
+
+ - <attestsvc>/version
+   This version tag represents the attestsvc state itself. I.e. if we change the
+   way that we replicate the enrollment database (more or fewer clones, etc),
+   this version tag would reflect that in the <major> part.
+
+Current software versions (and target state versions); 1:1
+
+Differences:
+  - <empty> to <1:1>
+    - addition of missing "version" tags
+    - addition of "twin" remote in the <attestsvc>/{A.B} clones.
+    - TPM state in <swtpmsvc> moved to a 'tpm' subdirectory.
+
+Upgrading to <1:1>
+
+  Enrollment service
+
+  - enrollsvc-repl (in run_repl.sh);
+    - if <enrollsvc>/version doesn't exist;
+      - log a warning and sleep, rinse and repeat
+  - enrollsvc-mgmt (in run_mgmt.sh/upgrade.sh);
+    - if <enrollsvc>/version doesn't exist, in-place upgrade;
+      - add <enrollsvc>/enrolldb.git/version = 1:1
+      - add <enrollsvc>/version = 1:1
+
+  Attestation service
+
+  - attestsvc-hcp (in run_hcp.sh);
+    - if <attestsvc>/version doesn't exist;
+      - log a warning and sleep, rinse and repeat
+  - attestsvc-repl (in run_repl.sh/upgrade.sh);
+    - if <attestsvc>/version doesn't exist, in-place upgrade;
+      - cd <attestsvc>/A && git remote add twin ../B && git fetch twin
+      - cd <attestsvc>/B && git remote add twin ../A && git fetch twin
+      - add <attestsvc>/version = 1:1
+
+  Software TPM service
+
+  - swtpmsvc (in run_swtpm.sh);
+    - if <swtpmsvc>/version doesn't exist, in-place upgrade;
+      - mkdir <swtpmsvc>/tpm
+      - cd <swtpmsvc> && mv ek.* tpm2-* .lock tpm/
+      - add <swtpmsvc>/version = 1:1

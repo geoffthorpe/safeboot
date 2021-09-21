@@ -12,6 +12,10 @@ if [[ `whoami` != "root" ]]; then
 	fi
 fi
 
+if [[ -z "$HCP_VER" ]]; then
+	echo "Error, HCP_VER (\"$HCP_VER\") must be set" >&2
+	exit 1
+fi
 if [[ -z "$HCP_ATTESTSVC_STATE_PREFIX" || ! -d "$HCP_ATTESTSVC_STATE_PREFIX" ]]; then
 	echo "Error, HCP_ATTESTSVC_STATE_PREFIX (\"$HCP_ATTESTSVC_STATE_PREFIX\") is not a valid path" >&2
 	exit 1
@@ -53,6 +57,7 @@ fi
 if [[ `whoami` == "root" ]]; then
 	echo "# HCP settings, put here so that non-root environments" >> /etc/environment
 	echo "# always get known-good values." >> /etc/environment
+	echo "HCP_VER=$HCP_VER" >> /etc/environment
 	echo "HCP_USER=$HCP_USER" >> /etc/environment
 	echo "HCP_ATTESTSVC_STATE_PREFIX=$HCP_ATTESTSVC_STATE_PREFIX" >> /etc/environment
 	echo "HCP_ATTESTSVC_REMOTE_REPO=$HCP_ATTESTSVC_REMOTE_REPO" >> /etc/environment
@@ -66,7 +71,8 @@ fi
 
 # Print the base configuration
 echo "Running '$0'" >&2
-echo "                HCP_USER=$HCP_USER" >&2
+echo "                     HCP_VER=$HCP_VER" >&2
+echo "                    HCP_USER=$HCP_USER" >&2
 echo "  HCP_ATTESTSVC_STATE_PREFIX=$HCP_ATTESTSVC_STATE_PREFIX" >&2
 echo "   HCP_ATTESTSVC_REMOTE_REPO=$HCP_ATTESTSVC_REMOTE_REPO" >&2
 echo "  HCP_ATTESTSVC_UPDATE_TIMER=$HCP_ATTESTSVC_UPDATE_TIMER" >&2

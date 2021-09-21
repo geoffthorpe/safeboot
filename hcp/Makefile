@@ -11,6 +11,11 @@ ifndef SAFEBOOT_HCP_RELAX
 HCP_DEPS_COMMON := $(TOP)/Makefile $(HCP_SRC)/settings.mk $(HCP_SRC)/Makefile
 endif
 
+# Current version (and version of state we handle)
+HCP_VER_MAJOR := 1
+HCP_VER_MINOR := 1
+HCP_VER := $(HCP_VER_MAJOR):$(HCP_VER_MINOR)
+
 # Configuration settings. (From wherever. A developer, a CI pipeline, some
 # package-building machinery, ...)
 include hcp/settings.mk
