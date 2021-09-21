@@ -32,6 +32,10 @@ endif
 SAFEBOOT_HCP_BASE ?= debian:bullseye-slim
 #SAFEBOOT_HCP_BASE ?= internal.dockerhub.mycompany.com/library/debian:buster-slim
 
+# Define this to inhibit all dependency on top-level Makefiles (safeboot and
+# safeboot/hcp) and this settings file.
+# SAFEBOOT_HCP_RELAX := 1
+
 # If defined, the "1apt-source" layer in hcp/base will be used, allowing apt to
 # use an alternative source of debian packages, trust different package signing
 # keys, etc.
