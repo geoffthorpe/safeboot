@@ -59,8 +59,7 @@ $(HCP_BASE_OUT)/0import.Dockerfile:
 $(HCP_BASE_OUT)/0import.built: $(HCP_BASE_OUT)/0import.Dockerfile
 $(HCP_BASE_OUT)/0import.built:
 	$Qcat $(HCP_BASE_OUT)/0import.Dockerfile | \
-		docker build -t $(HCP_BASE0_DNAME) \
-			--label $(SAFEBOOT_HCP_DSPACE)all=1 -
+		docker build -t $(HCP_BASE0_DNAME) -
 	$Qtouch $@
 
 # LAYER: 1apt-source

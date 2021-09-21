@@ -16,7 +16,7 @@ HCP_SUBMODULES_INSTALL_DEST := /install
 
 # The "docker run" preamble that mounts "install" where it should go
 HCP_SUBMODULES_DOCKER_RUN := \
-	docker run -i --rm \
+	docker run -i --rm --label $(SAFEBOOT_HCP_DSPACE)all=1 \
 	-v $(HCP_SUBMODULES_INSTALL):$(HCP_SUBMODULES_INSTALL_DEST)
 
 # If we declare build targets with a normal dependency on

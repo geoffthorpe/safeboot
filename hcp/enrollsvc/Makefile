@@ -114,7 +114,6 @@ $(HCP_ENROLLSVC_OUT)/built: $(HCP_ENROLLSVC_PATHS)
 $(HCP_ENROLLSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_ENROLLSVC_OUT)/built:
 	$Qdocker build -t $(HCP_ENROLLSVC_DNAME) \
-	               --label $(SAFEBOOT_HCP_DSPACE)enrollsvc=1 \
 	               -f $(HCP_ENROLLSVC_OUT)/Dockerfile \
 	               --build-arg DB_USER=$(DB_USER) \
 	               --build-arg FLASK_USER=$(FLASK_USER) \

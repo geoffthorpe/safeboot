@@ -19,8 +19,7 @@ $(HCP_BUILDER_OUT)/built: $(HCP_BUILDER_OUT)/Dockerfile
 $(HCP_BUILDER_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_BUILDER_OUT)/built:
 	$Qcat $(HCP_BUILDER_OUT)/Dockerfile | \
-		docker build -t $(HCP_BUILDER_DNAME) \
-			--label $(SAFEBOOT_HCP_DSPACE)builder=1 -
+		docker build -t $(HCP_BUILDER_DNAME) -
 	$Qtouch $@
 
 clean_hcp_builder: | preclean_hcp
