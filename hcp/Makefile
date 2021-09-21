@@ -7,7 +7,9 @@ $(TOP)/build/hcp: | $(TOP)/build
 
 # Used in dependency chains, as a change in these files can have effects that
 # require rebuilding other things.
+ifndef SAFEBOOT_HCP_RELAX
 HCP_DEPS_COMMON := $(TOP)/Makefile $(HCP_SRC)/settings.mk $(HCP_SRC)/Makefile
+endif
 
 # Configuration settings. (From wherever. A developer, a CI pipeline, some
 # package-building machinery, ...)
