@@ -346,7 +346,9 @@ $(eval dockFlags := $(if $(isFunction),--rm,-d --cidfile=$(cid)))
 $(eval mountFlags := $(if $(isFunction),,-v $(state):$(mount)$3))
 # Service start
 $(if $(isFunction),,\
-$(ctarget): $(initTgt))
+$(if $(NO_REINIT),\
+$(ctarget): | $(initTgt),
+$(ctarget): $(initTgt)))
 $(ctarget):
 	$Qrm -f $(cid)
 	$Qrm -f $(clastExit)
