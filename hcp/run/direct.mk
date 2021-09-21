@@ -71,7 +71,7 @@ HCP_RUN_UTIL_IMAGE ?= debian:bullseye-slim
 #   to avoid any --publish arguments in a CI pipeline. If you add something
 #   other than --publish args to an XTRA variable, consider the implications!
 
-HCP_RUN_ENROLL_SIGNER ?= $(HCP_RUN_TOP)/creds/asset-signer
+#HCP_RUN_ENROLL_SIGNER ?= $(HCP_RUN_TOP)/creds/asset-signer
 HCP_RUN_ENROLL_SIGNER_AUTOCREATE ?= yes
 #HCP_RUN_ENROLL_UWSGI ?= uwsgi_python3
 #HCP_RUN_ENROLL_UWSGI_PORT ?= 5000
@@ -95,18 +95,6 @@ HCP_RUN_SWTPM_ENROLL_HOSTNAME ?= example_host.wherever.xyz
 HCP_RUN_SWTPM_ENROLL_URL ?= http://enrollsvc_mgmt:5000/v1/add
 HCP_RUN_SWTPM_XTRA ?= --publish=9876:9876
 
-HCP_RUN_CLIENT_VERIFIER ?= $(HCP_RUN_TOP)/creds/asset-verifier
+#HCP_RUN_CLIENT_VERIFIER ?= $(HCP_RUN_TOP)/creds/asset-verifier
 HCP_RUN_CLIENT_TPM2TOOLS_TCTI ?= swtpm:host=swtpmsvc,port=9876
 HCP_RUN_CLIENT_ATTEST_URL ?= http://attestsvc_hcp:8080
-
-# Note, because we define HCP_RUN_TOP and here, and hcp/run/Makefile sources us
-# before declaraing directory-creation dependencies on it, we have a slightly
-# circular problem. Our default for the asset-signing creds is
-# HCP_RUN_ENROLL_SIGNER, which defaults to $(HCP_RUN_TOP)/creds/asset-signer.
-# Note that HCP_RUN_CREDS is defined to be $(HCP_RUN_TOP)/creds after this file
-# is sourced! So we blindly declare the following dependency, knowing "it will
-# work" once everything has been included and processed.
-$(HCP_RUN_TOP)/creds/asset-signer: | $(HCP_RUN_TOP)/creds
-$(HCP_RUN_TOP)/creds/asset-verifier: | $(HCP_RUN_TOP)/creds
-HCP_RUN_MDIRS += $(HCP_RUN_TOP)/creds/asset-signer
-HCP_RUN_MDIRS += $(HCP_RUN_TOP)/creds/asset-verifier
