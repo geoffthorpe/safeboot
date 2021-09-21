@@ -41,6 +41,8 @@
 # state (and logs, [etc]) under ./build/hcp/run
 TOP ?= $(shell pwd)
 HCP_RUN_TOP ?= $(TOP)/build/hcp/run
+# If the default gets used, it requires this dep
+$(TOP)/build/hcp/run: | $(TOP)/build/hcp
 
 # In the dev/debug workflow, the default "DSPACE" (naming prefix used for all
 # objects on the local Docker instance) "DTAG" (colon-separated suffix for all
