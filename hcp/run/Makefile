@@ -354,7 +354,7 @@ $(ctarget):
 	$Qrm -f $(clastExit)
 	$Qecho "Starting '$(name)$(csuffix)'"
 	$Sdocker run $(dockFlags) $(mountFlags) \
-		--name $(fullName)$(csuffix) \
+		--name $(HCP_RUN_DSPACE)$(name)$(csuffix) \
 		--hostname $(name)$(csuffix) \
 		$(if $(HCP_RUN_DNETWORKS),--network-alias $(name)$(csuffix)) \
 		$(foreach i,$(HCP_RUN_DNETWORKS),--network $i ) \
@@ -435,7 +435,7 @@ $(initTgt):
 	$Qecho "Initializing '$(name)' state"
 	$Sdocker run -i --rm \
 		-v $(state):$(mount) \
-		--name $(fullName) \
+		--name $(HCP_RUN_DSPACE)$(name)_init \
 		--hostname $(name) \
 		$(if $(HCP_RUN_DNETWORKS),--network-alias $(name)) \
 		$(foreach i,$(HCP_RUN_DNETWORKS),--network $i ) \
