@@ -16,5 +16,5 @@ git clone $HCP_ATTESTSVC_REMOTE_REPO A
 git clone $HCP_ATTESTSVC_REMOTE_REPO B
 ln -s A current
 ln -s B next
-(cd A && git remote add twin ../B)
-(cd B && git remote add twin ../A)
+(cd A && git remote add twin ../B && git fetch twin)
+(cd B && git remote add twin ../A && git fetch twin)
