@@ -315,6 +315,7 @@ $(ctarget):
 		$(if $(HCP_RUN_DNETWORKS),--network-alias $(name)$(csuffix)) \
 		$(foreach i,$(HCP_RUN_DNETWORKS),--network $i ) \
 		--label $(HCP_RUN_DSPACE)$(name)$(csuffix)=1 \
+		--label $(HCP_RUN_DSPACE)all=1 \
 		$(cenvs) \
 		$(imgName) \
 		$2
@@ -395,6 +396,7 @@ $(initTgt):
 		$(if $(HCP_RUN_DNETWORKS),--network-alias $(name)) \
 		$(foreach i,$(HCP_RUN_DNETWORKS),--network $i ) \
 		--label $(HCP_RUN_DSPACE)$(name)_init=1 \
+		--label $(HCP_RUN_DSPACE)all=1 \
 		$(envs) \
 		$(imgName) \
 		$(cmdInit)

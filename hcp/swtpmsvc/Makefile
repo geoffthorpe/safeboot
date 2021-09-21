@@ -57,7 +57,6 @@ $(HCP_SWTPMSVC_OUT)/built: $(HCP_SWTPMSVC_PATHS)
 $(HCP_SWTPMSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_SWTPMSVC_OUT)/built:
 	$Qdocker build -t $(HCP_SWTPMSVC_DNAME) \
-	               --label $(SAFEBOOT_HCP_DSPACE)swtpmsvc=1 \
 	               -f $(HCP_SWTPMSVC_OUT)/Dockerfile \
 	               $(HCP_SWTPMSVC_OUT)
 	$Qtouch $@

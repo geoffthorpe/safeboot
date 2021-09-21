@@ -107,7 +107,6 @@ $(HCP_ATTESTSVC_OUT)/built: $(HCP_ATTESTSVC_PATHS)
 $(HCP_ATTESTSVC_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_ATTESTSVC_OUT)/built:
 	$Qdocker build -t $(HCP_ATTESTSVC_DNAME) \
-	               --label $(SAFEBOOT_HCP_DSPACE)attestsvc=1 \
 	               -f $(HCP_ATTESTSVC_OUT)/Dockerfile \
 	               --build-arg HCP_USER=$(HCP_USER) \
 	               $(HCP_ATTESTSVC_OUT)

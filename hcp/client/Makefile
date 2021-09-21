@@ -57,7 +57,6 @@ $(HCP_CLIENT_OUT)/built: $(HCP_CLIENT_PATHS)
 $(HCP_CLIENT_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_CLIENT_OUT)/built:
 	$Qdocker build -t $(HCP_CLIENT_DNAME) \
-	               --label $(SAFEBOOT_HCP_DSPACE)client=1 \
 	               -f $(HCP_CLIENT_OUT)/Dockerfile \
 	               $(HCP_CLIENT_OUT)
 	$Qtouch $@

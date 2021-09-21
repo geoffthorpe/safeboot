@@ -114,7 +114,6 @@ $(HCP_CABOODLE_OUT)/built: $(HCP_CABOODLE_PATHS)
 $(HCP_CABOODLE_OUT)/built: $(HCP_BASE_TOUCHFILE)
 $(HCP_CABOODLE_OUT)/built:
 	$Qdocker build -t $(HCP_CABOODLE_DNAME) \
-	               --label $(SAFEBOOT_HCP_DSPACE)caboodle=1 \
 	               -f $(HCP_CABOODLE_OUT)/Dockerfile \
 	               --build-arg DB_USER=$(DB_USER) \
 	               --build-arg FLASK_USER=$(FLASK_USER) \
