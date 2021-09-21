@@ -149,12 +149,24 @@ HCP_RUN_DNETWORKS :=
 endif
 endif
 
+ifeq (yes,$(HCP_RUN_ENROLL_SIGNER_AUTOCREATE))
+ifndef HCP_RUN_ENROLL_SIGNER
+$(HCP_RUN_TOP)/creds/asset-signer: | $(HCP_RUN_TOP)/creds
+HCP_RUN_ENROLL_SIGNER := $(HCP_RUN_TOP)/creds/asset-signer
+endif
+HCP_RUN_MDIRS += $(HCP_RUN_ENROLL_SIGNER)
+ifndef HCP_RUN_CLIENT_VERIFIER
+$(HCP_RUN_TOP)/creds/asset-verifier: | $(HCP_RUN_TOP)/creds
+HCP_RUN_CLIENT_VERIFIER := $(HCP_RUN_TOP)/creds/asset-verifier
+endif
+HCP_RUN_MDIRS += $(HCP_RUN_CLIENT_VERIFIER)
+else
 ifeq (,$(HCP_RUN_ENROLL_SIGNER))
 $(error HCP_RUN_ENROLL_SIGNER must be a directory with key.{priv,pem} for asset signing.)
 endif
-
 ifeq (,$(HCP_RUN_CLIENT_VERIFIER))
 $(error HCP_RUN_CLIENT_VERIFIER must be a directory with key.pem for sig-validation.)
+endif
 endif
 
 ifeq (,$(HCP_RUN_UTIL_IMAGE))
