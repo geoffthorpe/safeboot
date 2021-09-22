@@ -65,15 +65,17 @@ repo_cmd_lock || (echo "Error, failed to lock repo" >&2 && exit 1) || exit 1
 (
 DIR_LIST=`ls -d $FPATH 2> /dev/null`
 for i in $DIR_LIST; do
+	read ekp < $i/ekpubhash
+	read hn < $i/hostname
 	[[ -z $QUERY_PLEASE_ALSO_DELETE ]] ||
-		(revhn=`cat $i/hostname* | rev` &&
+		(revhn=`echo $hn | rev` &&
 		echo $revhn `basename "$i"` >> $HN2EK_PATH.filter) ||
 		(echo "Error, failed to add filter" >&2 && exit 1) ||
 		exit 1
 	ls -1 $i | grep -v "ekpubhash" | grep -v "hostname" | \
 		jq -Rn \
-		--arg ekpubhash "`cat $i/ekpubhash`" \
-		--arg hostname "`cat $i/hostname*`" \
+		--arg ekpubhash "$ekp" \
+		--arg hostname "$hn" \
 		'{ekpubhash: $ekpubhash, hostname: $hostname, others: [inputs]}'
 	[[ -z $QUERY_PLEASE_ALSO_DELETE ]] || git rm -r $i >&2 ||
 		(echo "Error, 'git rm'/pattern-tracker failed" >&2 && exit 1) ||
