@@ -23,7 +23,7 @@ export HCP_ATTESTSVC_REMOTE_REPO=git://localhost/enrolldb
 export HCP_ATTESTSVC_UPDATE_TIMER=10
 export HCP_SWTPMSVC_STATE_PREFIX=/state/swtpmsvc
 export HCP_SWTPMSVC_ENROLL_HOSTNAME=localhost
-export HCP_SWTPMSVC_ENROLL_URL=http://localhost:5000/v1/add
+export HCP_SWTPMSVC_ENROLL_API=http://localhost:5000
 export HCP_RUN_CLIENT_VERIFIER=/creds/asset-verifier
 export HCP_CLIENT_ATTEST_URL=http://localhost:8080
 export HCP_RUN_CLIENT_TPM2TOOLS_TCTI=swtpm:host=localhost,port=9876
