@@ -256,7 +256,7 @@ default:
 # Various "<verb>all" rules
 initall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_init)
 cleanall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_clean)
-startall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_start)
+startall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_start) client_start
 stopall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_stop)
 
 # This target allows you to shell into a running container (using docker exec).
