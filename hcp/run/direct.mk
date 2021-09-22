@@ -92,7 +92,7 @@ HCP_RUN_ATTEST_UPDATE_TIMER ?= 10
 HCP_RUN_ATTEST_XTRA_HCP ?= --publish=8080:8080 --publish=8081:8081
 
 HCP_RUN_SWTPM_ENROLL_HOSTNAME ?= example_host.wherever.xyz
-HCP_RUN_SWTPM_ENROLL_URL ?= http://enrollsvc_mgmt:5000/v1/add
+HCP_RUN_SWTPM_ENROLL_API ?= http://enrollsvc_mgmt:5000
 HCP_RUN_SWTPM_XTRA ?= --publish=9876:9876
 
 #HCP_RUN_CLIENT_VERIFIER ?= $(HCP_RUN_TOP)/creds/asset-verifier
