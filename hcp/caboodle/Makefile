@@ -37,12 +37,13 @@ $(HCP_CABOODLE_OUT)/safeboot.tar.gz: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz
 $(HCP_CABOODLE_OUT)/safeboot.tar.gz:
 	$Qcp $< $@
 
-# And all the hcp-{common,enrollsvc,attestsvc,swtpmsvc,client} bundles
+# And all the hcp-{common,enrollsvc,attestsvc,swtpmsvc,client,caboodle} bundles
 HCP_CABOODLE_PATHS += $(HCP_CABOODLE_OUT)/hcp-common.tar.gz
 HCP_CABOODLE_PATHS += $(HCP_CABOODLE_OUT)/hcp-enrollsvc.tar.gz
 HCP_CABOODLE_PATHS += $(HCP_CABOODLE_OUT)/hcp-attestsvc.tar.gz
 HCP_CABOODLE_PATHS += $(HCP_CABOODLE_OUT)/hcp-swtpmsvc.tar.gz
 HCP_CABOODLE_PATHS += $(HCP_CABOODLE_OUT)/hcp-client.tar.gz
+HCP_CABOODLE_PATHS += $(HCP_CABOODLE_OUT)/hcp-caboodle.tar.gz
 $(HCP_CABOODLE_OUT)/hcp-common.tar.gz: | $(HCP_CABOODLE_OUT)
 $(HCP_CABOODLE_OUT)/hcp-common.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz
 $(HCP_CABOODLE_OUT)/hcp-common.tar.gz:
@@ -63,12 +64,9 @@ $(HCP_CABOODLE_OUT)/hcp-client.tar.gz: | $(HCP_CABOODLE_OUT)
 $(HCP_CABOODLE_OUT)/hcp-client.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz
 $(HCP_CABOODLE_OUT)/hcp-client.tar.gz:
 	$Qcp $< $@
-
-# Add our single, caboodle-specific script
-HCP_CABOODLE_PATHS += $(HCP_CABOODLE_OUT)/test-everything.sh
-$(HCP_CABOODLE_OUT)/test-everything.sh: | $(HCP_CABOODLE_OUT)
-$(HCP_CABOODLE_OUT)/test-everything.sh: $(HCP_CABOODLE_SRC)/test-everything.sh
-$(HCP_CABOODLE_OUT)/test-everything.sh:
+$(HCP_CABOODLE_OUT)/hcp-caboodle.tar.gz: | $(HCP_CABOODLE_OUT)
+$(HCP_CABOODLE_OUT)/hcp-caboodle.tar.gz: $(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz
+$(HCP_CABOODLE_OUT)/hcp-caboodle.tar.gz:
 	$Qcp $< $@
 
 # Dockerfile-generation.
@@ -79,6 +77,7 @@ $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_ENROLLSVC_SRC)/Dockerfile
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_ATTESTSVC_SRC)/Dockerfile
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SWTPMSVC_SRC)/Dockerfile
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_CLIENT_SRC)/Dockerfile
+$(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_CABOODLE_SRC)/Dockerfile
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SUBMODULES_OUT)/install.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/safeboot.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-common.tar.gz.inject
@@ -86,6 +85,7 @@ $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject
+$(HCP_CABOODLE_OUT)/Dockerfile: $(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz.inject
 $(HCP_CABOODLE_OUT)/Dockerfile:
 	$Qecho "FROM $(HCP_BASE_DNAME)" > $@
 	$Qcat $(HCP_ENROLLSVC_SRC)/Dockerfile >> $@
@@ -99,6 +99,7 @@ $(HCP_CABOODLE_OUT)/Dockerfile:
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz.inject >> $@
 	$Qcat $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject >> $@
+	$Qcat $(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz.inject >> $@
 	$Qecho "$(call tarball_finalize)" >> $@
 	$Qcat $(HCP_CABOODLE_SRC)/Dockerfile >> $@
 

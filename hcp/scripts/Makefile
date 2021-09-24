@@ -67,14 +67,16 @@ HCP_SCRIPTS_HCP_ENROLLSVC := $(HCP_SCRIPTS_HCP_ROOT)/enrollsvc
 HCP_SCRIPTS_HCP_ATTESTSVC := $(HCP_SCRIPTS_HCP_ROOT)/attestsvc
 HCP_SCRIPTS_HCP_SWTPMSVC := $(HCP_SCRIPTS_HCP_ROOT)/swtpmsvc
 HCP_SCRIPTS_HCP_CLIENT := $(HCP_SCRIPTS_HCP_ROOT)/client
+HCP_SCRIPTS_HCP_CABOODLE := $(HCP_SCRIPTS_HCP_ROOT)/caboodle
 $(HCP_SCRIPTS_HCP_ROOT): | $(HCP_SCRIPTS_OUT)
 $(HCP_SCRIPTS_HCP_ENROLLSVC): | $(HCP_SCRIPTS_HCP_ROOT)
 $(HCP_SCRIPTS_HCP_ATTESTSVC): | $(HCP_SCRIPTS_HCP_ROOT)
 $(HCP_SCRIPTS_HCP_SWTPMSVC): | $(HCP_SCRIPTS_HCP_ROOT)
 $(HCP_SCRIPTS_HCP_CLIENT): | $(HCP_SCRIPTS_HCP_ROOT)
+$(HCP_SCRIPTS_HCP_CABOODLE): | $(HCP_SCRIPTS_HCP_ROOT)
 MDIRS += $(HCP_SCRIPTS_HCP_ROOT) $(HCP_SCRIPTS_HCP_ENROLLSVC) \
 	$(HCP_SCRIPTS_HCP_ATTESTSVC) $(HCP_SCRIPTS_HCP_SWTPMSVC) \
-	$(HCP_SCRIPTS_HCP_CLIENT)
+	$(HCP_SCRIPTS_HCP_CLIENT) $(HCP_SCRIPTS_HCP_CABOODLE)
 
 # /hcp (currently just to provide tail_wait.pl)
 $(eval $(call scripts_target_add,hcp.common))
@@ -149,6 +151,21 @@ $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz:
 $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz.inject: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz
 	$Qecho "$(call tarball_extract,hcp-client)" > $@
 
+# files for /hcp/caboodle
+HCP_SCRIPTS_HCP_CABOODLE_FILES = $(shell ls -1 $(TOP)/hcp/caboodle | \
+				grep -v Makefile | egrep -v ".*.Dockerfile")
+$(eval $(call scripts_target_add,hcp.caboodle))
+$(foreach i,$(HCP_SCRIPTS_HCP_CABOODLE_FILES),\
+	$(eval $(call scripts_add,hcp.caboodle,hcp/caboodle,\
+		$(TOP)/hcp/caboodle,$i,755)))
+
+$(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz: $(HCP_SCRIPTS_OUT)/hcp.caboodle
+$(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz:
+	$Qtar zcf $(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz \
+		--owner root:0 --group root:0 -C $(HCP_SCRIPTS_OUT) hcp/caboodle
+$(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz.inject: $(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz
+	$Qecho "$(call tarball_extract,hcp-caboodle)" > $@
+
 
 ###################
 # wrapper targets #
@@ -160,6 +177,7 @@ hcp_scripts: $(HCP_SCRIPTS_OUT)/hcp-enrollsvc.tar.gz
 hcp_scripts: $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz
 hcp_scripts: $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz
 hcp_scripts: $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz
+hcp_scripts: $(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz
 
 clean_hcp_scripts:
 	$Qrm -f $(HCP_SCRIPTS_OUT)/safeboot.tar.gz
@@ -168,6 +186,7 @@ clean_hcp_scripts:
 	$Qrm -f $(HCP_SCRIPTS_OUT)/hcp-attestsvc.tar.gz
 	$Qrm -f $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz
 	$Qrm -f $(HCP_SCRIPTS_OUT)/hcp-client.tar.gz
+	$Qrm -f $(HCP_SCRIPTS_OUT)/hcp-caboodle.tar.gz
 	$Qrm -rf $(HCP_SCRIPTS_OUT)
 
 # Cleanup ordering
