@@ -127,7 +127,7 @@ $(foreach i,$(HCP_SCRIPTS_HCP_SWTPMSVC_FILES),\
 	$(eval $(call scripts_add,hcp.swtpmsvc,hcp/swtpmsvc,\
 		$(TOP)/hcp/swtpmsvc,$i,755)))
 $(eval $(call scripts_add,hcp.swtpmsvc,hcp/swtpmsvc,\
-	$(TOP)/hcp/pyclient,enroll_api.py,755))
+	$(TOP)/hcp/python,enroll_api.py,755))
 
 $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz: $(HCP_SCRIPTS_OUT)/hcp.swtpmsvc
 $(HCP_SCRIPTS_OUT)/hcp-swtpmsvc.tar.gz:
