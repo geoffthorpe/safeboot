@@ -2,17 +2,11 @@
 
 . /hcp/swtpmsvc/common.sh
 
-chown root:root $HCP_SWTPMSVC_STATE_PREFIX
-
 echo "$HCP_VER" > $HCP_SWTPMSVC_STATE_PREFIX/version
 
 # common.sh takes care of HCP_SWTPMSVC_STATE_PREFIX and STATE_HOSTNAME. We also
 # need HCP_SWTPMSVC_ENROLL_API when doing the setup.
 echo "      HCP_SWTPMSVC_ENROLL_API=$HCP_SWTPMSVC_ENROLL_API" >&2
-if [[ -z "$HCP_SWTPMSVC_ENROLL_API" ]]; then
-	echo "Error, HCP_SWTPMSVC_ENROLL_API (\"$HCP_SWTPMSVC_ENROLL_API\") is not set" >&2
-	exit 1
-fi
 
 TPMDIR=$HCP_SWTPMSVC_STATE_PREFIX/tpm
 mkdir $TPMDIR
@@ -41,7 +35,9 @@ echo "Software TPM state created;"
 tpm2 print -t TPM2B_PUBLIC $TPMDIR/ek.pub
 kill $THEPID
 
+if [[ -n "$HCP_SWTPMSVC_ENROLL_API" ]]; then
 # Now, enroll this TPM/host combination with the enrollment service.  The
 # enroll_api.py script hits the API endpoint for us.
 python3 /hcp/swtpmsvc/enroll_api.py --api $HCP_SWTPMSVC_ENROLL_API \
 	add $TPMDIR/ek.pub $HCP_SWTPMSVC_ENROLL_HOSTNAME
+fi
