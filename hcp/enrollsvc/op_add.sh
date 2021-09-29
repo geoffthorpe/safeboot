@@ -44,6 +44,7 @@ ls -l $EPHEMERAL_ENROLL
 	(echo "Error, ek.pub file not where it is expected" && exit 1) || exit 1
 
 EKPUBHASH="$(sha256sum "$EPHEMERAL_ENROLL/ek.pub" | cut -f1 -d' ')"
+HALFHASH=`echo $EKPUBHASH | cut -c 1-16`
 
 cd $REPO_PATH
 
@@ -72,7 +73,7 @@ ply_path_add "$EKPUBHASH" || itfailed=1
 		cp -a $EPHEMERAL_ENROLL/* "$FPATH/" &&
 		mv $HN2EK_PATH.tmp $HN2EK_PATH &&
 		git add . &&
-		git commit -m "map $1 to $2") || itfailed=1
+		git commit -m "map $HALFHASH to $2") || itfailed=1
 # TODO:
 # 1. This exception/error/rollback path (necessarily before releasing the lock)
 #    needs an alert valve of some kind. It's implemented to maximise
