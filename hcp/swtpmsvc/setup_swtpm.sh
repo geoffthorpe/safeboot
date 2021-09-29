@@ -28,11 +28,16 @@ echo "Started temporary instance of swtpm"
 sleep 1
 
 # Now pressure it into creating the EK (and why didn't "swtpm_setup --createek"
-# already achieve this?)
+# already achieve this?) This is natively in TPM2B_PUBLIC format, but generate
+# the PEM equivalent at the same time, as this can come in handy with testing.
 export TPM2TOOLS_TCTI=swtpm:host=localhost,port=19283
 tpm2 createek -c $TPMDIR/ek.ctx -u $TPMDIR/ek.pub
+tpm2 print -t TPM2B_PUBLIC -f PEM $TPMDIR/ek.pub > $TPMDIR/ek.pem
+chmod a+r $TPMDIR/ek.pub
+chmod a+r $TPMDIR/ek.pem
 echo "Software TPM state created;"
 tpm2 print -t TPM2B_PUBLIC $TPMDIR/ek.pub
+cat $TPMDIR/ek.pem
 kill $THEPID
 
 if [[ -n "$HCP_SWTPMSVC_ENROLL_API" ]]; then
