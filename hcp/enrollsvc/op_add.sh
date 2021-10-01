@@ -34,7 +34,8 @@ cd /safeboot
 
 export EPHEMERAL_ENROLL=`mktemp -d -u`
 
-attest-enroll -V CHECKOUT=/hcp/enrollsvc/cb_checkout.sh -V COMMIT=/hcp/enrollsvc/cb_commit.sh -I $1 $2 ||
+./sbin/attest-enroll -V CHECKOUT=/hcp/enrollsvc/cb_checkout.sh \
+		-V COMMIT=/hcp/enrollsvc/cb_commit.sh -I $1 $2 ||
 	(echo "Error, 'attest-enroll' failed" && exit 1) || exit 1
 
 # When running from a console, it can be handy to see what was generated
