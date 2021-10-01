@@ -90,24 +90,35 @@ $(HCP_SUBMODULES_OUT)/tpm2-tools.autogened:
 	$Q$(HCP_SUBMODULES_TPM2-TOOLS_RUN) "cd /tpm2-tools ; ./bootstrap"
 	$Qtouch $@
 
-CMD_TPM2-TOOLS_CFG := cd /tpm2-tools ;
-CMD_TPM2-TOOLS_CFG += PKG_CONFIG_PATH="$(HCP_SUBMODULES_INSTALL_DEST)/lib/pkgconfig"
-CMD_TPM2-TOOLS_CFG += ./configure
-CMD_TPM2-TOOLS_CFG += --prefix=$(HCP_SUBMODULES_INSTALL_DEST)
+# Bug alert: previously, setting PKG_CONFIG_PATH was enough for tpm2-tools to
+# detect everything it needs. Now, it fails to find "tss2-esys>=2.4.0" and
+# suggests setting TSS2_ESYS_2_3_{CFLAGS,LIBS} "to avoid the need to call
+# pkg-config". Indeed, setting these works, but those same settings should have
+# been picked up from the pkgconfig directory...
+CMD_TPM2-TOOLS := cd /tpm2-tools ;
+CMD_TPM2-TOOLS += PKG_CONFIG_PATH=$(HCP_SUBMODULES_INSTALL_DEST)/lib/pkgconfig
+CMD_TPM2-TOOLS += TSS2_ESYS_2_3_CFLAGS=\"-I$(HCP_SUBMODULES_INSTALL_DEST) -I$(HCP_SUBMODULES_INSTALL_DEST)/tss2\"
+CMD_TPM2-TOOLS += TSS2_ESYS_2_3_LIBS=\"-L$(HCP_SUBMODULES_INSTALL_DEST)/lib -ltss2-esys\"
+
+CMD_TPM2-TOOLS_CFG := $(CMD_TPM2-TOOLS)
+CMD_TPM2-TOOLS_CFG += ./configure --prefix=$(HCP_SUBMODULES_INSTALL_DEST)
 $(HCP_SUBMODULES_OUT)/tpm2-tools.configured: $(HCP_SUBMODULES_OUT)/tpm2-tools.autogened
 $(HCP_SUBMODULES_OUT)/tpm2-tools.configured: $(HCP_SUBMODULES_OUT)/tpm2-tss.installed
 $(HCP_SUBMODULES_OUT)/tpm2-tools.configured:
 	$Q$(HCP_SUBMODULES_TPM2-TOOLS_RUN) "$(CMD_TPM2-TOOLS_CFG)"
 	$Qtouch $@
 
+CMD_TPM2-TOOLS_COMP := $(CMD_TPM2-TOOLS)
+CMD_TPM2-TOOLS_COMP += make $(SAFEBOOT_HCP_SUBMODULES_MAKE_PARALLEL)
 $(HCP_SUBMODULES_OUT)/tpm2-tools.compiled: $(HCP_SUBMODULES_OUT)/tpm2-tools.configured
 $(HCP_SUBMODULES_OUT)/tpm2-tools.compiled:
-	$Q$(HCP_SUBMODULES_TPM2-TOOLS_RUN) "cd /tpm2-tools ; make $(SAFEBOOT_HCP_SUBMODULES_MAKE_PARALLEL)"
+	$Q$(HCP_SUBMODULES_TPM2-TOOLS_RUN) "$(CMD_TPM2-TOOLS_COMP)"
 	$Qtouch $@
 
+CMD_TPM2-TOOLS_INSTALL := $(CMD_TPM2-TOOLS_COMP) install
 $(HCP_SUBMODULES_OUT)/tpm2-tools.installed: $(HCP_SUBMODULES_OUT)/tpm2-tools.compiled
 $(HCP_SUBMODULES_OUT)/tpm2-tools.installed:
-	$Q$(HCP_SUBMODULES_TPM2-TOOLS_RUN) "cd /tpm2-tools ; make install"
+	$Q$(HCP_SUBMODULES_TPM2-TOOLS_RUN) "$(CMD_TPM2-TOOLS_INSTALL)"
 	$Qtouch $@
 
 endif
