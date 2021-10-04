@@ -539,7 +539,7 @@ ifeq (,$(HCP_RUN_CABOODLE_TEST))
 HCP_RUN_CABOODLE_CMD := bash
 HCP_RUN_CABOODLE_ARGS := -it
 else
-HCP_RUN_CABOODLE_CMD := /test-everything.sh
+HCP_RUN_CABOODLE_CMD := /hcp/caboodle/test.sh
 HCP_RUN_CABOODLE_ARGS :=
 endif
 HCP_RUN_CABOODLE_ARGS += -v $(shell pwd):/escapehatch
