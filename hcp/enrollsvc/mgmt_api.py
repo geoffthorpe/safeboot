@@ -1,5 +1,5 @@
 import flask
-from flask import request, abort
+from flask import request, abort, send_file
 import subprocess
 import json
 import os, sys
@@ -50,6 +50,9 @@ def home():
 </table>
 <input type="submit" value="Find">
 </form>
+
+<h2>To retrieve the asset-signing trust anchor;</h2>
+<a href="/v1/get-asset-signer">Click here</a>
 '''
 
 # We enforce privilege separation by running this flask app as the $FLASK_USER
@@ -122,6 +125,12 @@ def my_find():
         abort(500)
     j = json.loads(c.stdout)
     return j
+
+@app.route('/v1/get-asset-signer', methods=['GET'])
+def assetSigner():
+	return send_file('/signer/key.pem',
+			 as_attachment = True,
+			 attachment_filename = 'asset-signer.pem')
 
 if __name__ == "__main__":
     app.run()

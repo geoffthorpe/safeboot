@@ -14,12 +14,20 @@
 #
 # find:    curl -v -G -d hostname_suffix=<hostname_suffix> \
 #               <enrollsvc-URL>/v1/find
+#
+# get-asset-signer:  curl -v -G <enrollsvc-URL>/v1/get-asset-signer
 
 import json
 import requests
 import os
 import sys
 import argparse
+
+# TODO: make this interface more import-friendly and less cmd-line-specific.
+# I.e. the enroll_*() functions tag an 'args' structure for all parameters,
+# direct from the argparse output. Should probably add an intermediate layer to
+# unpack those and pass the parameters into a more API-like interface for the
+# actual implementations.
 
 # Handler functions for the subcommands (add, query, delete, find)
 # They all return a 2-tuple of {result,json}, where result is True iff the
@@ -63,6 +71,16 @@ def enroll_find(args):
     response = requests.get(args.api + '/v1/find', params=form_data)
     jr = json.loads(response.content)
     return True, jr
+
+def enroll_getAssetSigner(args):
+    response = requests.get(args.api + '/v1/get-asset-signer')
+    if response.status_code != 200:
+        raise Exception('API returned error code ' + response.status_code)
+    if args.output:
+        open(args.output, 'wb').write(response.content)
+    else:
+        sys.stdout.buffer.write(response.content)
+    return True, None
 
 if __name__ == '__main__':
 
@@ -158,15 +176,32 @@ if __name__ == '__main__':
     parser_f.add_argument('hostname_suffix', help=find_help_suffix)
     parser_f.set_defaults(func=enroll_find)
 
+    getAssetSigner_help = 'Retrieve trust anchor for asset-signing'
+    getAssetSigner_epilog = """
+    The 'getAssetSigner' subcommand invokes the '/v1/getAssetSigner' handler of
+    the Enrollment Service's management API, to download the trust anchor to
+    allow an attestation client to validate the signatures on its enrolled
+    assets.
+    """
+    getAssetSigner_help_output = 'path to the save the trust anchor to'
+    parser_g = subparsers.add_parser('getAssetSigner', help=getAssetSigner_help,
+                                     epilog=getAssetSigner_epilog)
+    parser_g.add_argument('--output', metavar='<PATH>',
+                          default = None,
+			  help=getAssetSigner_help_output)
+    parser_g.set_defaults(func=enroll_getAssetSigner)
+
     # Process the command-line
     args = parser.parse_args()
     if not args.api:
         print("Error, no API URL was provided.")
         sys.exit(-1)
 
-    # Dispatch
+    # Dispatch. Note that 'json' is not necessarily JSON. :-) E.g. the getAssetSigner
+    # function will None
     result, json = args.func(args)
     if not result:
         print("Error, API returned failure")
         sys.exit(-1)
-    print(json)
+    if json:
+	    print(json)
