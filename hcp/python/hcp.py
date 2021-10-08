@@ -41,14 +41,16 @@ import subprocess
 import tempfile
 import os
 import pprint
+from pathlib import Path, PurePosixPath
 
 docker_run_preamble = ['docker', 'run']
 
 pp = pprint.PrettyPrinter(indent=4)
 
 class Hcp:
-	# - Provide 'hcp' _OR_ 'prefix'/'suffix' to specify the namespace for
-	#   Docker objects, or neither to assume the default.
+	# - Provide 'net' _OR_ 'hcp' _OR_ 'prefix'/'suffix' to specify the
+	#   namespace for Docker objects, or none to assume the defaults.
+	# - If 'net' is provided, it should be an HcpNetwork object.
 	# - If 'util' is provided, it is assumed to be full-qualified (not part
 	#   of the current Hcp prefix/suffix namespace), e.g. "debian:latest".
 	#   Otherwise the 'caboodle' image from the current namespace is taken
@@ -61,8 +63,15 @@ class Hcp:
 	#   invocations by this object. Each Dict consists of 'source' and
 	#   'dest' string-valued fields, which specify the host path to be
 	#   mounted and the container path it should show up as, respectively.
-	def __init__(self, *, hcp=None, prefix='safeboot_hcp_', suffix='devel',
-		     util=None,flags=None, mounts=None):
+	# - 'labels' is an optional array of strings, each of which will be
+	#   set to a value of 1 when launching a container.
+	def __init__(self, *, net = None, hcp = None,
+		     prefix = 'safeboot_hcp_', suffix = 'devel',
+		     util = None, flags = None, mounts = None, labels = None):
+		self.net = None
+		if net:
+			self.net = net
+			hcp = net
 		if hcp:
 			self.prefix = hcp.prefix
 			self.suffix = hcp.suffix
@@ -79,6 +88,10 @@ class Hcp:
 		self.mounts = []
 		if mounts:
 			self.mounts += mounts
+		self.netName = self.prefix + 'network'
+		self.labels = [self.netName]
+		if labels:
+			self.labels += labels
 		self.envs = {}
 
 	# Given an image name, elaborate it with prefix/suffix namespace info
@@ -87,133 +100,270 @@ class Hcp:
 	def img_name(self, name):
 		return self.prefix + name + ':' + self.suffix
 
+	# Similar, but without the ':'. E.g. used for container names
+	def other_name(self, name):
+		return self.prefix + name + self.suffix
+
 	# Launch a container in this namespace. This would typically be used
 	# internally by a derived class, which knows about the particular
 	# service or function it's trying to launch.
-	# - If 'name' is None, the utility container is launched. Otherwise
-	#   'name' is a string that is passed through img_name() to determine
-	#   the container image to be launched.
+	# - If 'imgName' is None, the utility container is launched. Otherwise
+	#   it is a string that is passed through img_name() to determine the
+	#   container image to be launched.
 	# - 'cmd' is an array of strings, that are passed to "docker run"
 	#   right after the image name.
 	# - 'flags' and 'mounts' take the same form as they do in the
 	#   constructor, though they only take effect during this call.
 	# Returns 'CompletedProcess' struct from os.subprocess.run()
-	def launch(self, name, cmd, *, flags=None, mounts=None):
+	def launch(self, imgName, cmd, *,
+		   flags = None,
+		   mounts = None,
+		   labels = None,
+		   contName = None,
+		   hostName = None,
+		   network = None):
 		args = docker_run_preamble.copy()
 		args += self.flags
 		if (flags):
 			args += flags
+		m = self.mounts
 		if (mounts):
-			mounts = self.mounts + mounts
-		else:
-			mounts = self.mounts
-		for m in mounts:
+			m += mounts
+		for x in m:
 			args.append('-v')
-			s = m['source'] + ':' + m['dest']
+			s = x['source'] + ':' + x['dest']
 			args.append(s)
 		for e in self.envs:
 			args.append('--env')
 			s = e + '=' + self.envs[e]
 			args.append(s)
-		if name:
-			args.append(self.img_name(name))
+		if contName:
+			args += ['--name', self.other_name(contName)]
+		if hostName:
+			args += ['--hostname', hostName]
+		if not network and self.net:
+			network = self.net.netName
+		if network:
+			args += ['--network', network]
+			if hostName:
+				args += ['--network-alias', hostName]
+		if self.net:
+			self.net.netInitialize()
+		l = self.labels
+		if labels:
+			l += labels
+		for x in l:
+			args += ['--label', x]
+		if imgName:
+			args.append(self.img_name(imgName))
 		else:
 			args.append(self.util)
 		args += cmd
-		print('Running:', args)
+		return self.raw_run(args)
+
+	def raw_run(self, args):
 		outcome = subprocess.run(args)
-		print('Outcome:', outcome)
+		if outcome.returncode != 0:
+			raise Exception('Failure when running; ' + ' '.join(args))
 		return outcome
+
+class HcpNetwork(Hcp):
+
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		self.lazyStarted = False
+		outcome = subprocess.run(
+			['docker', 'network', 'inspect', self.netName],
+			capture_output = True)
+		if outcome.returncode == 0:
+			self.preExisting = True
+		else:
+			self.preExisting = False
+
+	def netInitialize(self):
+		if not self.preExisting and not self.lazyStarted:
+			subprocess.run(['docker', 'network', 'create', self.netName])
+			self.lazyStarted = True
+
+	def netCleanup(self):
+		if not self.preExisting and self.lazyStarted:
+			subprocess.run(['docker', 'network', 'rm', self.netName])
+			self.lazyStarted = False
+
+class HcpFunction(Hcp):
+
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		self.labels = []
+		self.contName = None
+		self.hostName = None
+
+	def Run(self, *, flags=None):
+		f = ['-t','--rm']
+		if flags:
+			f += flags
+		return self.launch(self.imgName, self.runCmd,
+				   flags = f,
+				   labels = self.labels,
+				   contName = self.contName,
+				   hostName = self.hostName)
 
 class HcpService(Hcp):
 
-	# This is a base class for HCP services (HcpEnrollsvc, HcpAttestsvc,
-	# HcpSwtpmsvc), where each object represents a stateful instance.
-	# - 'path' specifies the directory where the instance should be,
-	#   otherwise a randomly-generated directory is chosen.
-	# - all other constructor parameters are passed through to the Hcp
-	#   constructor.
-	# Note, this constructor ensures the directory for the instance exists,
-	# it does not determine whether (or not) the instance has already been
-	# initialized. See ::Initialized().
-	def __init__(self, *, path=None, **kwargs):
+	def __init__(self, *, path = None, **kwargs):
 		super().__init__(**kwargs)
 		self.latched = False
 		self.running = False
 		if not path:
-			self.path = tempfile.mkdtemp()
+			self.dynamicPath = True
 		else:
-			self.path = path
-			if not os.path.isdir(path):
-				os.mkdir(self.path)
-		self.mounts.append({'source': self.path, 'dest': '/state'})
+			self.dynamicPath = False
+			self.path = Path(path)
+		self.lazyConstruct()
+		self.mounts.append({'source': str(self.path_state),
+				    'dest': '/state'})
+		self.ports = []
+		self.labels = []
+		self.contName = None
+		self.hostName = None
 
-	# This run-time check is used to determine whether or not an instance
-	# has done its service-specific initialization. Each derived class
-	# should implement the boolean-valued handler "svcInitialized" to
-	# perform the actual check. (The path is passed to the handler as a
-	# parameter, to maintain some semblance of encapsulation, despite
-	# python.) If this ever returns True, we cache that (as "latched") so
-	# that we are not repeatedly testing an already-initialized instance,
-	# but we never cache the False case - as double-initialization (e.g. in
-	# a loosely-written test-case) can be very gnarly to untangle.
-	# - Returns boolean.
+	def lazyConstruct(self):
+		if self.dynamicPath:
+			self.path = Path(tempfile.mkdtemp())
+		else:
+			if not self.path.is_dir():
+				self.path.mkdir()
+		self.path_state = Path(self.path / 'state')
+		self.path_init = Path(self.path / 'initialized')
+		self.path_cid = Path(self.path / 'cid')
+		# We always mount a subdirectory of our path, so that we
+		# have a place to put metadata that the container can't
+		# mangle.
+		if not self.path_state.is_dir():
+			self.path_state.mkdir()
+
 	def Initialized(self):
-		if not self.latched:
-			self.latched = self.svcInitialized(self.path)
-		return self.latched
+		return self.path_init.is_file()
 
-	# Note, derived classes do not implement the actual initialization
-	# routine! Rather, the derived class configures container image and
-	# command information in its constructor, so the base class
-	# implementation can do the launching for it. I.e. the service
-	# specifics are in the container image, not the python class that
-	# represents it. (Conversely, detecting whether initialization has
-	# already occurred is typically not performed by a container, which is
-	# why the python class has to specialize that.)
-	# - Returns 'CompletedProcess' struct from os.subprocess.run(), or None
-	#   if the instance was already initialized.
 	def Initialize(self):
 		if not self.Initialized():
-			return self.launch(self.contName, self.initCmd,
-					      flags=['-t','--rm'])
+			self.lazyConstruct()
+			self.launch(self.imgName, self.initCmd,
+				    flags=['-t','--rm'])
+			self.path_init.touch()
 		return None
 
-	# Destroys an initialized instance. Note, there is no specialization for
-	# derived classes - deleting an instance is presumed to be equivalent to
-	# deleting its state. To avoid namespace weirdness, we use the utility
-	# container to do our deleting for us.
-	# - Returns 'CompletedProcess' struct from os.subprocess.run(), or None
-	#   if the instance wasn't initialized.
 	def Delete(self):
 		outcome = None
 		if self.Initialized():
-			outcome = self.launch(None,
+			self.lazyConstruct()
+			outcome = self.launch(self.imgName,
 				['bash', '-c', 'cd /state && rm -rf *'],
 				flags=['-t','--rm'])
-		if os.path.isdir(self.path):
-			os.rmdir(self.path)
+			self.path_state.rmdir()
+			self.path_init.unlink()
+		if self.path_cid.is_file():
+			self.path_cid.unlink()
+		self.path.rmdir()
 		return outcome
+
+	def Start(self):
+		if not self.running:
+			self.Initialize()
+			flags = ['-t','-d','--cidfile', str(self.path_cid)]
+			for x in self.ports:
+				s = f"--publish={x['host']}:{x['cont']}"
+				flags.append(s)
+			self.launch(self.imgName, self.startCmd,
+				    flags = flags,
+				    labels = self.labels,
+				    contName = self.contName,
+				    hostName = self.hostName)
+			self.running = True
+
+	def Stop(self):
+		if self.running:
+			with open(str(self.path_cid), 'r') as f:
+				cid = f.readline()
+			self.raw_run(['docker', 'container', 'kill', cid])
+			self.raw_run(['docker', 'container', 'rm', cid])
+			self.path_cid.unlink()
+			self.running = False
+
+class HcpAttestclient(HcpFunction):
+	def __init__(self, *,
+		     attestURL = 'http://attestsvc_hcp:8080',
+		     tpm2TCTI = 'swtpm:host=swtpmsvc,port=9876',
+		     contName = 'client',
+		     hostName = 'client',
+		     assetSigner = None,
+		     **kwargs):
+		super().__init__(**kwargs)
+		self.imgName = 'client'
+		self.runCmd = ['/hcp/client/run_client.sh']
+		self.labels.append('HcpAttestclient')
+		self.contName = contName
+		self.hostName = hostName
+		if assetSigner:
+			p = Path(assetSigner).parent
+			self.flags += ['-v', str(p) + ':/signer']
+			self.envs['HCP_RUN_CLIENT_VERIFIER'] = '/signer'
+		self.envs['HCP_CLIENT_ATTEST_URL'] = attestURL
+		self.envs['HCP_RUN_CLIENT_TPM2TOOLS_TCTI'] = tpm2TCTI
 
 class HcpSwtpmsvc(HcpService):
 
-	# Specializes HcpService to represent the HCP 'swtpmsvc' container
-	# image (software TPM).
-	# - 'enrollHostname' specifies the hostname that the software TPM
-	#   should be bound to, as/when it gets enrolled.
-	# - all other constructor parameters are passed through to the
-	#   HcpService constructor.
 	def __init__(self, *,
-		     enrollHostname='nada.nothing.xyz',
+		     enrollHostname = 'nada.nothing.xyz',
+		     enrollAPI = None,
+		     listenPort = 0,
+		     contName = 'swtpmsvc',
+		     hostName = 'swtpmsvc',
 		     **kwargs):
 		super().__init__(**kwargs)
-		self.contName = 'swtpmsvc'
+		self.imgName = 'swtpmsvc'
 		self.initCmd = ['/hcp/swtpmsvc/setup_swtpm.sh']
+		self.startCmd = ['/hcp/swtpmsvc/run_swtpm.sh']
+		self.labels.append('HcpSwtpmsvc')
+		self.contName = contName
+		self.hostName = hostName
 		self.envs['HCP_SWTPMSVC_STATE_PREFIX'] = '/state'
 		self.envs['HCP_SWTPMSVC_ENROLL_HOSTNAME'] = enrollHostname
+		if enrollAPI:
+			self.envs['HCP_SWTPMSVC_ENROLL_API'] = enrollAPI
+		if listenPort > 0:
+			self.ports.append({'host': listenPort,
+					   'cont': 9876})
 
-	# Obligatory handler, to detect if the instance has already been set
-	# up. We use the presence/absence of the 'tpm' sub-directory to
-	# determine this.
-	def svcInitialized(self, path):
-		return os.path.isdir(path + '/tpm')
+if __name__ == '__main__':
+	import time
+	from enroll_api import enroll_getAssetSigner
+	class HcpArgs:
+		pass
+	net = HcpNetwork()
+	path = os.getcwd() + '/Barney'
+	assetSigner = tempfile.mkdtemp()
+	args = HcpArgs()
+	args.api = 'http://localhost:5000'
+	args.output = assetSigner + '/key.pem'
+	enroll_getAssetSigner(args)
+	stpm = HcpSwtpmsvc(net = net, path = path,
+			   util = 'debian:latest',
+			   enrollAPI = 'http://enrollsvc_mgmt:5000',
+			   listenPort = 9876)
+	client = HcpAttestclient(net = net,
+				 assetSigner = args.output)
+	try:
+		print('Try stpm.Initialize()')
+		stpm.Initialize()
+		print('Try stpm.Start()')
+		stpm.Start()
+		print('Try client.Run()')
+		client.Run()
+	finally:
+		print('Doing the finally dance')
+		stpm.Stop()
+		stpm.Delete()
+		net.netCleanup()
+		Path(args.output).unlink()
+		Path(assetSigner).rmdir()
