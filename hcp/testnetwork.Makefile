@@ -1,4 +1,4 @@
-HCP_TESTNETWORK_NAME := $(SAFEBOOT_HCP_DSPACE)network_hcp
+HCP_TESTNETWORK_NAME := $(SAFEBOOT_HCP_DSPACE)network
 
 # "docker network create" the network (recipe only)
 $(HCP_OUT)/testnetwork.created: | $(HCP_OUT)
