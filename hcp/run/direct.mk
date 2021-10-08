@@ -51,8 +51,8 @@ HCP_RUN_DSPACE ?= safeboot_hcp_
 HCP_RUN_DTAG ?= devel
 
 # In the dev/debug workflow, all containers default to attaching to a network
-# called "$(DSPACE)network_hcp";
-HCP_RUN_DNETWORKS ?= $(HCP_RUN_DSPACE)network_hcp
+# called "$(DSPACE)network";
+HCP_RUN_DNETWORKS ?= $(HCP_RUN_DSPACE)network
 
 # In the dev/debug workflow, the required script is at this path;
 HCP_RUN_ASSIST_CLEANUP ?= $(TOP)/hcp/assist_cleanup.sh
