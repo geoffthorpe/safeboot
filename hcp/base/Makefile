@@ -62,6 +62,7 @@ $(HCP_BASE_OUT)/0import.Dockerfile: $(HCP_BASE_DEPS_COMMON)
 $(HCP_BASE_OUT)/0import.Dockerfile:
 	$Qecho "FROM $(SAFEBOOT_HCP_BASE)" > $@
 	$Qecho "ENV HCP_VER=$(HCP_VER)" >> $@
+	$Qecho "LABEL $(SAFEBOOT_HCP_DSPACE)all=1" >> $@
 
 $(HCP_BASE_OUT)/0import.built: $(HCP_BASE_OUT)/0import.Dockerfile
 $(HCP_BASE_OUT)/0import.built:
