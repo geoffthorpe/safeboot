@@ -1,7 +1,7 @@
 # Minimal set of system tools that we want in all containers. E.g. because
 # scripts require their presence (e.g. 'openssl', ...) or because they make the
 # shell experience in the container tolerable (e.g. 'ip', 'ps', 'ping', ...)
-RUN apt-get install -y openssl procps iproute2 iputils-ping curl wget acl
+RUN apt-get install -y openssl procps iproute2 iputils-ping curl wget acl lsof
 
 # If we are using upstream Debian packaging for "tpm2-tools" (and "tpm2-tss" by
 # dependency), then this marker gets replaced by "apt-get install tpm2-tools",
