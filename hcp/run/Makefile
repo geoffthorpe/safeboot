@@ -179,6 +179,18 @@ $(error HCP_RUN_CLIENT_VERIFIER must be a directory with key.pem for sig-validat
 endif
 endif
 
+ifeq (yes,$(HCP_RUN_ENROLL_GENCERT_AUTOCREATE))
+ifndef HCP_RUN_ENROLL_GENCERT
+$(HCP_RUN_TOP)/creds/gencert-CA: | $(HCP_RUN_TOP)/creds
+HCP_RUN_ENROLL_GENCERT := $(HCP_RUN_TOP)/creds/gencert-CA
+endif
+HCP_RUN_MDIRS += $(HCP_RUN_ENROLL_GENCERT)
+else
+ifeq (,$(HCP_RUN_ENROLL_GENCERT))
+$(error HCP_RUN_ENROLL_GENCERT must be a directory with key.{priv,cert} for signing host certificates.)
+endif
+endif
+
 ifeq (,$(HCP_RUN_UTIL_IMAGE))
 HCP_RUN_UTIL_IMAGE := debian:latest
 $(info HCP_RUN_UTIL_IMAGE wasn't defined, using $(HCP_RUN_UTIL_IMAGE))
@@ -479,6 +491,9 @@ HCP_RUN_ENROLL_MOUNT_repl := :ro
 HCP_RUN_ENROLL_ARGS := --env HCP_ENROLLSVC_STATE_PREFIX="$(HCP_RUN_ENROLL_MOUNT)"
 HCP_RUN_ENROLL_ARGS += -v $(HCP_RUN_ENROLL_SIGNER):/signer
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_SIGNER="/signer"
+HCP_RUN_ENROLL_ARGS += -v $(HCP_RUN_ENROLL_GENCERT):/gencert-CA
+HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_GENCERT="/gencert-CA"
+HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_REALM="$(HCP_RUN_ENROLL_REALM)"
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_UWSGI="$(HCP_RUN_ENROLL_UWSGI)"
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_UWSGI_PORT="$(HCP_RUN_ENROLL_UWSGI_PORT)"
 HCP_RUN_ENROLL_ARGS += --env HCP_RUN_ENROLL_UWSGI_FLAGS="$(HCP_RUN_ENROLL_UWSGI_FLAGS)"
@@ -570,4 +585,13 @@ $(HCP_RUN_ENROLL_SIGNER)/key.pem: $(HCP_RUN_ENROLL_SIGNER)/key.priv
 	$Qopenssl rsa -pubout -in $< -out $@
 $(HCP_RUN_CLIENT_VERIFIER)/key.pem: $(HCP_RUN_ENROLL_SIGNER)/key.pem | $(HCP_RUN_CLIENT_VERIFIER)
 	$Qcp $< $@
+endif
+
+# Similarly for the gencert CA, if HCP_RUN_ENROLL_GENCERT_AUTOCREATE is "yes".
+ifeq (yes,$(HCP_RUN_ENROLL_GENCERT_AUTOCREATE))
+$(HCP_RUN_enrollsvc_TGT_INIT): | $(HCP_RUN_ENROLL_GENCERT)/CA.cert
+$(HCP_RUN_ENROLL_GENCERT)/CA.priv: | $(HCP_RUN_ENROLL_GENCERT)
+	$Qopenssl genrsa -out $@
+$(HCP_RUN_ENROLL_GENCERT)/CA.cert: $(HCP_RUN_ENROLL_GENCERT)/CA.priv
+	$Qopenssl req -new -key $< -subj /CN=localhost -x509 -out $@
 endif

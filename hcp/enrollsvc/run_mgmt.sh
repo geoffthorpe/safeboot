@@ -21,6 +21,10 @@ echo "Chowning asset-signing keys for use by db_user"
 
 chown db_user:db_user $SIGNING_KEY_PRIV $SIGNING_KEY_PUB
 
+echo "Chowning gencert CA creds for use by db_user"
+
+chown db_user:db_user $GENCERT_CA_PRIV $GENCERT_CA_CERT
+
 echo "Running 'enrollsvc-mgmt' service"
 
 drop_privs_flask /hcp/enrollsvc/flask_wrapper.sh
