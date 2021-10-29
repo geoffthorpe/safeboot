@@ -58,8 +58,8 @@ class HcpSwtpmBank:
 				'lock': Lock()
 				}
 			entry['tpm'] = None
-			entry['tpmEKpub'] = entry['path'] + '/tpm/ek.pub'
-			entry['tpmEKpem'] = entry['path'] + '/tpm/ek.pem'
+			entry['tpmEKpub'] = entry['path'] + '/state/tpm/ek.pub'
+			entry['tpmEKpem'] = entry['path'] + '/state/tpm/ek.pem'
 			entry['touchEnrolled'] = entry['path'] + '/enrolled'
 			entry['hostname'] = None
 			entry['ekpubhash'] = None
@@ -109,26 +109,24 @@ class HcpSwtpmBank:
 		children = []
 		for _ in range(threads):
 			p = Process(target=self.Soakenroll_thread, args=(loop,))
-			print('launching')
 			p.start()
 			children.append(p)
 		while len(children):
 			p = children.pop()
-			print('joining')
 			p.join()
 
 	def Soakenroll_thread(self, loop):
-		print(f'_thread, loop={loop}')
 		for _ in range(loop):
 			self.Soakenroll_iteration()
 
 	def Soakenroll_iteration(self):
-		print('_iteration')
 		args = HcpArgs()
 		args.api = self.enrollAPI
-		idx = randrange(0, self.num)
-		entry = self.entries[idx]
-		entry['lock'].acquire()
+		res = False
+		while not res:
+			idx = randrange(0, self.num)
+			entry = self.entries[idx]
+			res = entry['lock'].acquire(block = False)
 		if os.path.isfile(entry['touchEnrolled']):
 			print('{idx} enrolled, unenrolling.'.format(idx=idx), end=' ')
 			if not entry['ekpubhash']:
