@@ -108,63 +108,78 @@ class HcpSwtpmBank:
 		Path(self.numFile).unlink()
 		os.rmdir(self.path)
 
-	def Soakenroll(self, loop, threads):
+	def Soak(self, loop, threads, pcattest):
 		children = []
 		for _ in range(threads):
-			p = Process(target=self.Soakenroll_thread, args=(loop,))
+			p = Process(target=self.Soak_thread, args=(loop,pcattest,))
 			p.start()
 			children.append(p)
 		while len(children):
 			p = children.pop()
 			p.join()
 
-	def Soakenroll_thread(self, loop):
+	def Soak_thread(self, loop, pcattest):
 		for _ in range(loop):
-			self.Soakenroll_iteration()
+			self.Soak_iteration(pcattest)
 
-	def Soakenroll_iteration(self):
-		args = HcpArgs()
-		args.api = self.enrollAPI
+	def Soak_iteration(self, pcattest):
+		enrollargs = HcpArgs()
+		enrollargs.api = self.enrollAPI
 		res = False
 		while not res:
 			idx = randrange(0, self.num)
 			entry = self.entries[idx]
 			res = entry['lock'].acquire(block = False)
 		if os.path.isfile(entry['touchEnrolled']):
-			print('{idx} enrolled, unenrolling.'.format(idx=idx), end=' ')
-			if not entry['ekpubhash']:
-				# Lazy initialize the ekpubhash value, using 'find'
-				args.hostname_suffix = entry['hostname']
-				result, jr = enroll_find(args)
-				if not result:
-					raise Exception('Enrollment \'find\' failed')
-				num = len(jr['ekpubhashes'])
-				if num != 1:
-					raise Exception(f'Enrollment \'find\' return {num} hashes')
-				entry['ekpubhash'] = jr['ekpubhashes'].pop()
-				print('lazy-init ekpubhash={ekph}.'.format(
-					ekph = entry['ekpubhash']), end=' ')
-			args.ekpubhash = entry['ekpubhash']
-			result, jr = enroll_delete(args)
-			if not result:
-				raise Exception('Enrollment \'delete\' failed')
-			Path(entry['touchEnrolled']).unlink()
-		else:
-			print('{idx} unenrolled, enrolling.'.format(idx=idx), end=' ')
-			pubOrPem = randrange(0, 2)
-			if pubOrPem == 0:
-				print('TPM2B_PUBLIC.', end=' ')
-				args.ekpub = entry['tpmEKpub']
+			# It's enrolled. Choose whether to attest or unenroll it.
+			if pcattest > randrange(0, 100):
+				# attest
+				print('{idx} enrolled, attesting.'.format(idx=idx), end=' ')
+				# Unimplemented...
+				# self.Soak_locked_attest(entry)
 			else:
-				print('PEM.', end=' ')
-				args.ekpub = entry['tpmEKpem']
-			args.hostname = entry['hostname']
-			result, jr = enroll_add(args)
-			if not result:
-				raise Exception('Enrollment \'add\' failed')
-			Path(entry['touchEnrolled']).touch()
+				# unenroll
+				print('{idx} enrolled, unenrolling.'.format(idx=idx), end=' ')
+				self.Soak_locked_unenroll(enrollargs, entry)
+		else:
+			# It's not enrolled. Enroll it.
+			print('{idx} unenrolled, enrolling.'.format(idx=idx), end=' ')
+			self.Soak_locked_enroll(enrollargs, entry)
 		print('OK')
 		entry['lock'].release()
+
+	def Soak_locked_enroll(self, enrollargs, entry):
+		pubOrPem = randrange(0, 2)
+		if pubOrPem == 0:
+			print('TPM2B_PUBLIC.', end=' ')
+			enrollargs.ekpub = entry['tpmEKpub']
+		else:
+			print('PEM.', end=' ')
+			enrollargs.ekpub = entry['tpmEKpem']
+		enrollargs.hostname = entry['hostname']
+		result, jr = enroll_add(enrollargs)
+		if not result:
+			raise Exception('Enrollment \'add\' failed')
+		Path(entry['touchEnrolled']).touch()
+
+	def Soak_locked_unenroll(self, enrollargs, entry):
+		if not entry['ekpubhash']:
+			# Lazy initialize the ekpubhash value, using 'find'
+			enrollargs.hostname_suffix = entry['hostname']
+			result, jr = enroll_find(enrollargs)
+			if not result:
+				raise Exception('Enrollment \'find\' failed')
+			num = len(jr['ekpubhashes'])
+			if num != 1:
+				raise Exception(f'Enrollment \'find\' return {num} hashes')
+			entry['ekpubhash'] = jr['ekpubhashes'].pop()
+			print('lazy-init ekpubhash={ekph}.'.format(
+				ekph = entry['ekpubhash']), end=' ')
+		enrollargs.ekpubhash = entry['ekpubhash']
+		result, jr = enroll_delete(enrollargs)
+		if not result:
+			raise Exception('Enrollment \'delete\' failed')
+		Path(entry['touchEnrolled']).unlink()
 
 if __name__ == '__main__':
 
@@ -177,7 +192,7 @@ if __name__ == '__main__':
 			sys.exit(-1)
 		args.bank = HcpSwtpmBank(path = args.path,
 				    num = args.num,
-				    enrollAPI = args.api)
+				    enrollAPI = args.enrollapi)
 	def cmd_test_create(args):
 		cmd_test_common(args)
 		args.bank.Initialize()
@@ -186,7 +201,7 @@ if __name__ == '__main__':
 		cmd_test_common(args)
 		args.bank.Delete()
 
-	def cmd_test_soakenroll(args):
+	def cmd_test_soak(args):
 		cmd_test_common(args)
 		args.bank.Initialize()
 		if args.loop < 1:
@@ -195,7 +210,9 @@ if __name__ == '__main__':
 		if args.threads < 1:
 			print(f"Error, illegal threads value ({args.threads})")
 			sys.exit(-1)
-		args.bank.Soakenroll(args.loop, args.threads)
+		args.bank.Soak(args.loop, args.threads, args.pcattest)
+
+	fc = argparse.RawDescriptionHelpFormatter
 
 	# Wrapper 'test' command
 	test_desc = 'Toolkit for testing HCP services and functions'
@@ -210,17 +227,22 @@ This tool manages and uses a corpus of TPM EK (Endorsement Keys).
   '--num') it is presumed that the bank already exists.
 
 * If the base URL for the Enrollment Service's management API is not
-  supplied on the command line (via '--api'), it will fallback to using
-  the 'ENROLLSVC_API_URL' environment variable.
+  supplied on the command line (via '--enrollapi'), it will fallback
+  to using the 'ENROLLSVC_API_URL' environment variable.
+
+* If the URL for the Attestation Service is not supplied on the
+  command line (via '--attestapi'), it will fallback to using the
+  'ATTESTSVC_API_URL' environment variable.
 
 To see subcommand-specific help, pass '-h' to the subcommand.
 	"""
 	test_help_path = 'path for the corpus'
 	test_help_num = 'number of instances/EKpubs to support'
-	test_help_api = 'base URL for management interface'
+	test_help_enrollapi = 'base URL for the Enrollment Service management interface'
+	test_help_attestapi = 'URL for the Attestation Service interface'
 	parser = argparse.ArgumentParser(description = test_desc,
 					 epilog = test_epilog,
-			 formatter_class=argparse.RawDescriptionHelpFormatter)
+					 formatter_class = fc)
 	parser.add_argument('--path',
 			   default = os.environ.get('EKBANK_PATH'),
 			   help = test_help_path)
@@ -228,9 +250,12 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 			   type = int,
 			   default = 0,
 			   help = test_help_num)
-	parser.add_argument('--api', metavar='<URL>',
+	parser.add_argument('--enrollapi', metavar='<URL>',
 			    default = os.environ.get('ENROLLSVC_API_URL'),
-			    help = test_help_api)
+			    help = test_help_enrollapi)
+	parser.add_argument('--attestapi', metavar='<URL>',
+			    default = os.environ.get('ATTESTSVC_API_URL'),
+			    help = test_help_attestapi)
 	subparsers = parser.add_subparsers()
 
 	# ::create
@@ -249,23 +274,49 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 						epilog = test_delete_epilog)
 	parser_test_delete.set_defaults(func = cmd_test_delete)
 
-	# ::soakenroll
-	test_soakenroll_help = 'Soak tests an Enrollment Service using a bank of sTPM instances'
-	test_soakenroll_epilog = ''
-	test_soakenroll_help_loop = 'number of iterations in the core loop'
-	test_soakenroll_help_threads = 'number of core loops to run in parallel'
-	parser_test_soakenroll = subparsers.add_parser('soakenroll',
-						help = test_soakenroll_help,
-						epilog = test_soakenroll_epilog)
-	parser_test_soakenroll.add_argument('--loop',
-					      type = int,
-					      default = 20,
-					      help = test_soakenroll_help_loop)
-	parser_test_soakenroll.add_argument('--threads',
-					      type = int,
-					      default = 1,
-					      help = test_soakenroll_help_threads)
-	parser_test_soakenroll.set_defaults(func = cmd_test_soakenroll)
+	# ::soak
+	test_soak_help = 'Soak-tests Enrollment and/or Attestation services'
+	test_soak_epilog = """
+This command uses an existing bank of sTPM instances (the 'create'
+command must have already instanted them) to hit HCP services with a
+randomized selection of Enrollment and Attestation requests.
+
+* '--threads' (default=1) specifies how many threads to run.
+
+* '--loop' (default=20) specifies how many iterations/requests to
+  perform in each thread.
+
+* For each iteration, a currently-unused (unlocked) sTPM EK is randomly chosen
+  from the bank and locked for until the iteration is complete. If the
+  chosen EK is not currently enrolled, the iteration will perform an
+  enrollment operation, otherwise it will perform either an
+  unenrollment operation or an attestation operation with that EK.
+
+* '--pcattest' ("percentage of attest", default=0) is used to bias the
+  random selection between an unenrollment or attestation operation.
+  If --pcattest is 100 the choice will always be attestation, if it is
+  0 the choice will always be unenrollment.
+	"""
+	test_soak_help_loop = 'number of iterations in the core loop'
+	test_soak_help_threads = 'number of core loops to run in parallel'
+	test_soak_help_pcattest = 'percentage of iterations that attest'
+	parser_test_soak = subparsers.add_parser('soak',
+						help = test_soak_help,
+						epilog = test_soak_epilog,
+						formatter_class = fc)
+	parser_test_soak.add_argument('--loop',
+				      type = int,
+				      default = 20,
+				      help = test_soak_help_loop)
+	parser_test_soak.add_argument('--threads',
+				      type = int,
+				      default = 1,
+				      help = test_soak_help_threads)
+	parser_test_soak.add_argument('--pcattest',
+				      type = int,
+				      default = 0,
+				      help = test_soak_help_pcattest)
+	parser_test_soak.set_defaults(func = cmd_test_soak)
 
 	# Process the command line
 	func = None
@@ -274,14 +325,10 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 	if not args.func:
 		print("Error, no subcommand provided")
 		sys.exit(-1)
-	if not args.api:
-		print("Error, no API URL was provided")
+	if not args.enrollapi:
+		print("Error, no Enrollment Service API URL was provided")
+		sys.exit(-1)
+	if not args.attestapi:
+		print("Error, no Attestation Service URL was provided")
 		sys.exit(-1)
 	args.func(args)
-
-#	bank = HcpSwtpmBank(path=os.getcwd() + '/fooo')
-#	bank.Initialize()
-#	for _ in range(100):
-#		bank.Do()
-#	bank.Delete()
-
