@@ -171,23 +171,23 @@ if __name__ == '__main__':
 	import argparse
 	import sys
 
-	def cmd_ekbank_common(args):
+	def cmd_test_common(args):
 		if not args.path:
 			print("Error, no path provided (--path)")
 			sys.exit(-1)
 		args.bank = HcpSwtpmBank(path = args.path,
 				    num = args.num,
 				    enrollAPI = args.api)
-	def cmd_ekbank_create(args):
-		cmd_ekbank_common(args)
+	def cmd_test_create(args):
+		cmd_test_common(args)
 		args.bank.Initialize()
 
-	def cmd_ekbank_delete(args):
-		cmd_ekbank_common(args)
+	def cmd_test_delete(args):
+		cmd_test_common(args)
 		args.bank.Delete()
 
-	def cmd_ekbank_soakenroll(args):
-		cmd_ekbank_common(args)
+	def cmd_test_soakenroll(args):
+		cmd_test_common(args)
 		args.bank.Initialize()
 		if args.loop < 1:
 			print(f"Error, illegal loop value ({args.loop})")
@@ -200,78 +200,72 @@ if __name__ == '__main__':
 	# Wrapper 'test' command
 	test_desc = 'Toolkit for testing HCP services and functions'
 	test_epilog = """
-	If the URL for the Enrollment Service's management API is not supplied on the
-	command line (via '--api'), it will fallback to using the 'ENROLLSVC_API_URL'
-	environment variable.
+This tool manages and uses a corpus of TPM EK (Endorsement Keys).
 
-	To see subcommand-specific help, pass '-h' to the subcommand.
+* If the path for the corpus is not supplied on the command line (via
+  '--path'), it will fallback to using the 'EKBANK_PATH' environment
+  variable.
+
+* If the number of entries to use in the corpus is not supplied (via
+  '--num') it is presumed that the bank already exists.
+
+* If the base URL for the Enrollment Service's management API is not
+  supplied on the command line (via '--api'), it will fallback to using
+  the 'ENROLLSVC_API_URL' environment variable.
+
+To see subcommand-specific help, pass '-h' to the subcommand.
 	"""
+	test_help_path = 'path for the corpus'
+	test_help_num = 'number of instances/EKpubs to support'
 	test_help_api = 'base URL for management interface'
 	parser = argparse.ArgumentParser(description = test_desc,
-					 epilog = test_epilog)
+					 epilog = test_epilog,
+			 formatter_class=argparse.RawDescriptionHelpFormatter)
+	parser.add_argument('--path',
+			   default = os.environ.get('EKBANK_PATH'),
+			   help = test_help_path)
+	parser.add_argument('--num',
+			   type = int,
+			   default = 0,
+			   help = test_help_num)
 	parser.add_argument('--api', metavar='<URL>',
 			    default = os.environ.get('ENROLLSVC_API_URL'),
 			    help = test_help_api)
 	subparsers = parser.add_subparsers()
 
-	# ekbank
-	ekbank_help = 'Manages a bank of sTPM instances'
-	ekbank_epilog = """
-	The ekbank commands manage a corpus of TPM EK (Endorsement Keys) for use in
-	testing. If the path for the corpus is not supplied on the command line (via
-	'--api'), it will fallback to using the 'EKBANK_PATH' environment variable.
-	If the number of entries to use in the corpus is not supplied (via '--num')
-	it is presumed that the bank already exists.
+	# ::create
+	test_create_help = 'Creates/updates a bank of sTPM instances'
+	test_create_epilog = ''
+	parser_test_create = subparsers.add_parser('create',
+						help = test_create_help,
+						epilog = test_create_epilog)
+	parser_test_create.set_defaults(func = cmd_test_create)
 
-	To see subcommand-specific help, pass '-h' to the subcommand.
-	"""
-	ekbank_help_path = 'path for the corpus'
-	ekbank_help_num = 'number of instances/EKpubs to support'
-	parser_ekbank = subparsers.add_parser('ekbank',
-					      help = ekbank_help,
-					      epilog = ekbank_epilog)
-	parser_ekbank.add_argument('--path',
-				   default = os.environ.get('EKBANK_PATH'),
-				   help = ekbank_help_path)
-	parser_ekbank.add_argument('--num',
-				   type = int,
-				   default = 0,
-				   help = ekbank_help_num)
-	subparsers_ekbank = parser_ekbank.add_subparsers()
+	# ::delete
+	test_delete_help = 'Deletes a bank of sTPM instances'
+	test_delete_epilog = ''
+	parser_test_delete = subparsers.add_parser('delete',
+						help = test_delete_help,
+						epilog = test_delete_epilog)
+	parser_test_delete.set_defaults(func = cmd_test_delete)
 
-	# ekbank::create
-	ekbank_create_help = 'Creates/updates a bank of sTPM instances'
-	ekbank_create_epilog = ''
-	parser_ekbank_create = subparsers_ekbank.add_parser('create',
-						help = ekbank_create_help,
-						epilog = ekbank_create_epilog)
-	parser_ekbank_create.set_defaults(func = cmd_ekbank_create)
-
-	# ekbank::delete
-	ekbank_delete_help = 'Deletes a bank of sTPM instances'
-	ekbank_delete_epilog = ''
-	parser_ekbank_delete = subparsers_ekbank.add_parser('delete',
-						help = ekbank_delete_help,
-						epilog = ekbank_delete_epilog)
-	parser_ekbank_delete.set_defaults(func = cmd_ekbank_delete)
-
-	# ekbank::soakenroll
-	ekbank_soakenroll_help = 'Soak tests an Enrollment Service using a bank of sTPM instances'
-	ekbank_soakenroll_epilog = ''
-	ekbank_soakenroll_help_loop = 'number of iterations in the core loop'
-	ekbank_soakenroll_help_threads = 'number of core loops to run in parallel'
-	parser_ekbank_soakenroll = subparsers_ekbank.add_parser('soakenroll',
-						help = ekbank_soakenroll_help,
-						epilog = ekbank_soakenroll_epilog)
-	parser_ekbank_soakenroll.add_argument('--loop',
+	# ::soakenroll
+	test_soakenroll_help = 'Soak tests an Enrollment Service using a bank of sTPM instances'
+	test_soakenroll_epilog = ''
+	test_soakenroll_help_loop = 'number of iterations in the core loop'
+	test_soakenroll_help_threads = 'number of core loops to run in parallel'
+	parser_test_soakenroll = subparsers.add_parser('soakenroll',
+						help = test_soakenroll_help,
+						epilog = test_soakenroll_epilog)
+	parser_test_soakenroll.add_argument('--loop',
 					      type = int,
 					      default = 20,
-					      help = ekbank_soakenroll_help_loop)
-	parser_ekbank_soakenroll.add_argument('--threads',
+					      help = test_soakenroll_help_loop)
+	parser_test_soakenroll.add_argument('--threads',
 					      type = int,
 					      default = 1,
-					      help = ekbank_soakenroll_help_threads)
-	parser_ekbank_soakenroll.set_defaults(func = cmd_ekbank_soakenroll)
+					      help = test_soakenroll_help_threads)
+	parser_test_soakenroll.set_defaults(func = cmd_test_soakenroll)
 
 	# Process the command line
 	func = None
