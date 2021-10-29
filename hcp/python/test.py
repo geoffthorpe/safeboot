@@ -100,6 +100,9 @@ class HcpSwtpmBank:
 				path = entry['path']))
 			if not entry['tpm']:
 				entry['tpm'] = HcpSwtpmsvc(path=entry['path'])
+			pathPath = Path(entry['touchEnrolled'])
+			if pathPath.is_file():
+				pathPath.unlink()
 			entry['tpm'].Delete()
 			entry['tpm'] = None
 		Path(self.numFile).unlink()
