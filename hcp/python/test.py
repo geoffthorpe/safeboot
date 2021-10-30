@@ -9,7 +9,7 @@ from hashlib import sha256
 from multiprocessing import Process
 
 from hcp import HcpSwtpmsvc
-from enroll_api import enroll_add, enroll_delete, enroll_find
+from enroll_api import enroll_add, enroll_delete, enroll_query, enroll_find
 
 # The enroll_api functions take an 'args' object that contain inputs parsed
 # from the command-line (via 'argparse'). We want to use the same functions
@@ -60,7 +60,7 @@ class HcpSwtpmBank:
 			entry['tpm'] = None
 			entry['tpmEKpub'] = entry['path'] + '/state/tpm/ek.pub'
 			entry['tpmEKpem'] = entry['path'] + '/state/tpm/ek.pem'
-			entry['touchEnrolled'] = entry['path'] + '/enrolled'
+			entry['enrolled'] = Path(entry['path'] + '/enrolled')
 			entry['hostname'] = None
 			entry['ekpubhash'] = None
 			self.entries.append(entry)
@@ -80,6 +80,8 @@ class HcpSwtpmBank:
 		# of the TPM2B_PUBLIC-format ek.pub to a sha256 hash of the
 		# PEM-format ek.pem). To keep our TPM->hostname mapping
 		# distinct, we hash _both_ forms of the EK.
+		enrollargs = HcpArgs()
+		enrollargs.api = self.enrollAPI
 		for entry in self.entries:
 			if not entry['tpm']:
 				entry['tpm'] = HcpSwtpmsvc(path=entry['path'])
@@ -89,9 +91,25 @@ class HcpSwtpmBank:
 				grind.update(open(entry['tpmEKpem'], 'rb').read())
 				digest = grind.digest()
 				entry['hostname'] = digest[:4].hex() + '.nothing.xyz'
-				print('Initialized {num} at {path}'.format(
+				enrollargs.hostname_suffix = entry['hostname']
+				result, jr = enroll_find(enrollargs)
+				if not result:
+					raise Exception('Enrollment \'find\' failed')
+				num = len(jr['ekpubhashes'])
+				if num > 0:
+					if (num > 1):
+						raise Exception('Multiple TPMs per host-name?!')
+					entry['ekpubhash'] = jr['ekpubhashes'].pop()
+					entry['enrolled'].touch()
+					desc = 'enrolled'
+				else:
+					if entry['enrolled'].is_file():
+						entry['enrolled'].unlink()
+					desc = 'unenrolled'
+				print('Initialized {num} at {path}, {desc}'.format(
 					num = entry['index'],
-					path = entry['path']))
+					path = entry['path'],
+					desc = desc))
 
 	def Delete(self):
 		for entry in self.entries:
@@ -100,13 +118,41 @@ class HcpSwtpmBank:
 				path = entry['path']))
 			if not entry['tpm']:
 				entry['tpm'] = HcpSwtpmsvc(path=entry['path'])
-			pathPath = Path(entry['touchEnrolled'])
-			if pathPath.is_file():
-				pathPath.unlink()
+			if entry['enrolled'].is_file():
+				entry['enrolled'].unlink()
 			entry['tpm'].Delete()
 			entry['tpm'] = None
 		Path(self.numFile).unlink()
 		os.rmdir(self.path)
+
+	def AllIn(self):
+		enrollargs = HcpArgs()
+		enrollargs.api = self.enrollAPI
+		for entry in self.entries:
+			if not entry['enrolled'].is_file():
+				print('{idx} enrolling'.format(idx=entry['index']))
+				enrollargs.ekpub = entry['tpmEKpem']
+				enrollargs.hostname = entry['hostname']
+				result, jr = enroll_add(enrollargs)
+				if not result:
+					raise Exception('Enrollment \'add\' failed')
+				entry['enrolled'].touch()
+			else:
+				print('{idx} already enrolled'.format(idx=entry['index']))
+
+	def AllOut(self):
+		enrollargs = HcpArgs()
+		enrollargs.api = self.enrollAPI
+		for entry in self.entries:
+			if entry['enrolled'].is_file():
+				print('{idx} unenrolling'.format(idx=entry['index']))
+				enrollargs.ekpubhash = entry['ekpubhash']
+				result, jr = enroll_delete(enrollargs)
+				if not result:
+					raise Exception('Enrollment \'delete\' failed')
+				entry['enrolled'].unlink()
+			else:
+				print('{idx} already unenrolled'.format(idx=entry['index']))
 
 	def Soak(self, loop, threads, pcattest):
 		children = []
@@ -130,7 +176,7 @@ class HcpSwtpmBank:
 			idx = randrange(0, self.num)
 			entry = self.entries[idx]
 			res = entry['lock'].acquire(block = False)
-		if os.path.isfile(entry['touchEnrolled']):
+		if entry['enrolled'].is_file():
 			# It's enrolled. Choose whether to attest or unenroll it.
 			if pcattest > randrange(0, 100):
 				# attest
@@ -159,8 +205,8 @@ class HcpSwtpmBank:
 		enrollargs.hostname = entry['hostname']
 		result, jr = enroll_add(enrollargs)
 		if not result:
-			raise Exception('Enrollment \'add\' failed')
-		Path(entry['touchEnrolled']).touch()
+			raise Exception(f"Enrollment \'add\' failed index {entry['index']}")
+		entry['enrolled'].touch()
 
 	def Soak_locked_unenroll(self, enrollargs, entry):
 		if not entry['ekpubhash']:
@@ -179,7 +225,7 @@ class HcpSwtpmBank:
 		result, jr = enroll_delete(enrollargs)
 		if not result:
 			raise Exception('Enrollment \'delete\' failed')
-		Path(entry['touchEnrolled']).unlink()
+		entry['enrolled'].unlink()
 
 if __name__ == '__main__':
 
@@ -200,6 +246,16 @@ if __name__ == '__main__':
 	def cmd_test_delete(args):
 		cmd_test_common(args)
 		args.bank.Delete()
+
+	def cmd_test_allin(args):
+		cmd_test_common(args)
+		args.bank.Initialize()
+		args.bank.AllIn()
+
+	def cmd_test_allout(args):
+		cmd_test_common(args)
+		args.bank.Initialize()
+		args.bank.AllOut()
 
 	def cmd_test_soak(args):
 		cmd_test_common(args)
@@ -273,6 +329,22 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 						help = test_delete_help,
 						epilog = test_delete_epilog)
 	parser_test_delete.set_defaults(func = cmd_test_delete)
+
+	# ::allin
+	test_allin_help = 'Enrolls a bank of sTPM instances'
+	test_allin_epilog = ''
+	parser_test_allin = subparsers.add_parser('allin',
+						help = test_allin_help,
+						epilog = test_allin_epilog)
+	parser_test_allin.set_defaults(func = cmd_test_allin)
+
+	# ::allout
+	test_allout_help = 'Unenrolls a bank of sTPM instances'
+	test_allout_epilog = ''
+	parser_test_allout = subparsers.add_parser('allout',
+						help = test_allout_help,
+						epilog = test_allout_epilog)
+	parser_test_allout.set_defaults(func = cmd_test_allout)
 
 	# ::soak
 	test_soak_help = 'Soak-tests Enrollment and/or Attestation services'
