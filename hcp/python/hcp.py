@@ -214,6 +214,7 @@ class HcpService(Hcp):
 		super().__init__(**kwargs)
 		self.latched = False
 		self.running = False
+		self.checkedRunning = False
 		if not path:
 			self.dynamicPath = True
 		else:
@@ -242,6 +243,20 @@ class HcpService(Hcp):
 		if not self.path_state.is_dir():
 			self.path_state.mkdir()
 
+	def checkRunning(self):
+		cid = None
+		if self.path_cid.is_file():
+			lines = open(self.path_cid).readlines()
+			if len(lines) == 1:
+				cid = lines.pop()
+		if cid:
+			outcome = subprocess.run(
+				['docker', 'container', 'inspect', cid],
+				capture_output = True)
+			if outcome.returncode == 0:
+				self.running = True
+		self.checkedRunning = True
+
 	def Initialized(self):
 		return self.path_init.is_file()
 
@@ -251,7 +266,14 @@ class HcpService(Hcp):
 			self.launch(self.imgName, self.initCmd,
 				    flags=['-t','--rm'])
 			self.path_init.touch()
+		if not self.checkedRunning:
+			self.checkRunning()
 		return None
+
+	def Running(self):
+		if not self.checkedRunning:
+			self.checkRunning()
+		return self.running
 
 	def Delete(self):
 		outcome = None
@@ -268,8 +290,8 @@ class HcpService(Hcp):
 		return outcome
 
 	def Start(self):
+		self.Initialize()
 		if not self.running:
-			self.Initialize()
 			flags = ['-t','-d','--cidfile', str(self.path_cid)]
 			for x in self.ports:
 				s = f"--publish={x['host']}:{x['cont']}"
@@ -282,6 +304,7 @@ class HcpService(Hcp):
 			self.running = True
 
 	def Stop(self):
+		self.Initialize()
 		if self.running:
 			with open(str(self.path_cid), 'r') as f:
 				cid = f.readline()
@@ -291,6 +314,7 @@ class HcpService(Hcp):
 			self.running = False
 
 class HcpAttestclient(HcpFunction):
+
 	def __init__(self, *,
 		     attestURL = 'http://attestsvc_hcp:8080',
 		     tpm2TCTI = 'swtpm:host=swtpmsvc,port=9876',
