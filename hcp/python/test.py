@@ -25,9 +25,16 @@ class HcpArgs:
 # each time using a path created by tempfile.mkdtemp().)
 class HcpSwtpmBank:
 
-	def __init__(self, *, num=0, path=None, enrollAPI='http://localhost:5000'):
+	def __init__(self, *,
+		     num=0,
+		     path=None,
+		     enrollAPI = 'http://localhost:5000',
+		     attestAPI = 'http://localhost:8080',
+		     cprefix = 'hcptest'):
 		self.path = path
 		self.enrollAPI = enrollAPI
+		self.attestAPI = attestAPI
+		self.cprefix = cprefix
 		self.entries = []
 		if not self.path:
 			self.path = mkdtemp()
@@ -84,7 +91,9 @@ class HcpSwtpmBank:
 		enrollargs.api = self.enrollAPI
 		for entry in self.entries:
 			if not entry['tpm']:
-				entry['tpm'] = HcpSwtpmsvc(path=entry['path'])
+				entry['tpm'] = HcpSwtpmsvc(path=entry['path'],
+						contName=self.cprefix +
+							f"swtpm{entry['index']}")
 				entry['tpm'].Initialize()
 				grind = sha256()
 				grind.update(open(entry['tpmEKpub'], 'rb').read())
@@ -106,6 +115,10 @@ class HcpSwtpmBank:
 					if entry['enrolled'].is_file():
 						entry['enrolled'].unlink()
 					desc = 'unenrolled'
+				if entry['tpm'].Running():
+					desc += ', running'
+				else:
+					desc += ', not running'
 				print('Initialized {num} at {path}, {desc}'.format(
 					num = entry['index'],
 					path = entry['path'],
@@ -153,6 +166,22 @@ class HcpSwtpmBank:
 				entry['enrolled'].unlink()
 			else:
 				print('{idx} already unenrolled'.format(idx=entry['index']))
+
+	def AllStart(self):
+		for entry in self.entries:
+			if not entry['tpm'].Running():
+				print('{idx} running'.format(idx=entry['index']))
+				entry['tpm'].Start()
+			else:
+				print('{idx} already running'.format(idx=entry['index']))
+
+	def AllStop(self):
+		for entry in self.entries:
+			if entry['tpm'].Running():
+				print('{idx} stopping'.format(idx=entry['index']))
+				entry['tpm'].Stop()
+			else:
+				print('{idx} already stopped'.format(idx=entry['index']))
 
 	def Soak(self, loop, threads, pcattest):
 		children = []
@@ -236,9 +265,13 @@ if __name__ == '__main__':
 		if not args.path:
 			print("Error, no path provided (--path)")
 			sys.exit(-1)
+		if not args.cprefix:
+			args.cprefix = 'hcptest'
 		args.bank = HcpSwtpmBank(path = args.path,
 				    num = args.num,
-				    enrollAPI = args.enrollapi)
+				    enrollAPI = args.enrollapi,
+				    attestAPI = args.attestapi,
+				    cprefix = args.cprefix)
 	def cmd_test_create(args):
 		cmd_test_common(args)
 		args.bank.Initialize()
@@ -256,6 +289,16 @@ if __name__ == '__main__':
 		cmd_test_common(args)
 		args.bank.Initialize()
 		args.bank.AllOut()
+
+	def cmd_test_allstart(args):
+		cmd_test_common(args)
+		args.bank.Initialize()
+		args.bank.AllStart()
+
+	def cmd_test_allstop(args):
+		cmd_test_common(args)
+		args.bank.Initialize()
+		args.bank.AllStop()
 
 	def cmd_test_soak(args):
 		cmd_test_common(args)
@@ -276,19 +319,28 @@ if __name__ == '__main__':
 This tool manages and uses a corpus of TPM EK (Endorsement Keys).
 
 * If the path for the corpus is not supplied on the command line (via
-  '--path'), it will fallback to using the 'EKBANK_PATH' environment
-  variable.
+  '--path'), it will fallback to using the 'HCP_EKBANK_PATH'
+  environment variable.
 
 * If the number of entries to use in the corpus is not supplied (via
   '--num') it is presumed that the bank already exists.
 
 * If the base URL for the Enrollment Service's management API is not
   supplied on the command line (via '--enrollapi'), it will fallback
-  to using the 'ENROLLSVC_API_URL' environment variable.
+  to using the 'HCP_ENROLLSVC_API_URL' environment variable.
 
 * If the URL for the Attestation Service is not supplied on the
   command line (via '--attestapi'), it will fallback to using the
-  'ATTESTSVC_API_URL' environment variable.
+  'HCP_ATTESTSVC_API_URL' environment variable.
+
+* If the container-naming prefix is not supplied on the command line
+  (via '--cprefix'), it will fallback to using the 'HCP_CPREFIX'
+  environment variable. Otherwise "hcptest" will be used. Note that
+  containers must be created with distinct names, and without this
+  parameter, independent use of Docker on the same host system can be
+  compromised.
+
+* --
 
 To see subcommand-specific help, pass '-h' to the subcommand.
 	"""
@@ -296,22 +348,26 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 	test_help_num = 'number of instances/EKpubs to support'
 	test_help_enrollapi = 'base URL for the Enrollment Service management interface'
 	test_help_attestapi = 'URL for the Attestation Service interface'
+	test_help_cprefix = 'String to prefix to all Docker container names'
 	parser = argparse.ArgumentParser(description = test_desc,
 					 epilog = test_epilog,
 					 formatter_class = fc)
 	parser.add_argument('--path',
-			   default = os.environ.get('EKBANK_PATH'),
+			   default = os.environ.get('HCP_EKBANK_PATH'),
 			   help = test_help_path)
 	parser.add_argument('--num',
 			   type = int,
 			   default = 0,
 			   help = test_help_num)
 	parser.add_argument('--enrollapi', metavar='<URL>',
-			    default = os.environ.get('ENROLLSVC_API_URL'),
+			    default = os.environ.get('HCP_ENROLLSVC_API_URL'),
 			    help = test_help_enrollapi)
 	parser.add_argument('--attestapi', metavar='<URL>',
-			    default = os.environ.get('ATTESTSVC_API_URL'),
+			    default = os.environ.get('HCP_ATTESTSVC_API_URL'),
 			    help = test_help_attestapi)
+	parser.add_argument('--cprefix', metavar='<NAMEPREFIX>',
+			    default = os.environ.get('HCP_CPREFIX'),
+			    help = test_help_cprefix)
 	subparsers = parser.add_subparsers()
 
 	# ::create
@@ -331,7 +387,7 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 	parser_test_delete.set_defaults(func = cmd_test_delete)
 
 	# ::allin
-	test_allin_help = 'Enrolls a bank of sTPM instances'
+	test_allin_help = 'Enrolls a bank of sTPM Endorsement Keys'
 	test_allin_epilog = ''
 	parser_test_allin = subparsers.add_parser('allin',
 						help = test_allin_help,
@@ -339,12 +395,28 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 	parser_test_allin.set_defaults(func = cmd_test_allin)
 
 	# ::allout
-	test_allout_help = 'Unenrolls a bank of sTPM instances'
+	test_allout_help = 'Unenrolls a bank of sTPM Endorsement Keys'
 	test_allout_epilog = ''
 	parser_test_allout = subparsers.add_parser('allout',
 						help = test_allout_help,
 						epilog = test_allout_epilog)
 	parser_test_allout.set_defaults(func = cmd_test_allout)
+
+	# ::allstart
+	test_allstart_help = 'Starts a bank of sTPM (service) instances'
+	test_allstart_epilog = ''
+	parser_test_allstart = subparsers.add_parser('allstart',
+						help = test_allstart_help,
+						epilog = test_allstart_epilog)
+	parser_test_allstart.set_defaults(func = cmd_test_allstart)
+
+	# ::allstop
+	test_allstop_help = 'Stops a bank of sTPM (service) instances'
+	test_allstop_epilog = ''
+	parser_test_allstop = subparsers.add_parser('allstop',
+						help = test_allstop_help,
+						epilog = test_allstop_epilog)
+	parser_test_allstop.set_defaults(func = cmd_test_allstop)
 
 	# ::soak
 	test_soak_help = 'Soak-tests Enrollment and/or Attestation services'
