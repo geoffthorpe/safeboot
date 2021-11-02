@@ -70,6 +70,8 @@ class Hcp:
 		     util = None, flags = None, mounts = None, labels = None):
 		self.net = None
 		if net:
+			if hcp:
+				raise Exception("'net' and 'hcp' are exclusive")
 			self.net = net
 			hcp = net
 		if hcp:
@@ -120,8 +122,7 @@ class Hcp:
 		   mounts = None,
 		   labels = None,
 		   contName = None,
-		   hostName = None,
-		   network = None):
+		   hostName = None):
 		args = docker_run_preamble.copy()
 		args += self.flags
 		if (flags):
@@ -141,13 +142,10 @@ class Hcp:
 			args += ['--name', self.other_name(contName)]
 		if hostName:
 			args += ['--hostname', hostName]
-		if not network and self.net:
-			network = self.net.netName
-		if network:
-			args += ['--network', network]
+		if self.net:
+			args += ['--network', self.net.netName]
 			if hostName:
 				args += ['--network-alias', hostName]
-		if self.net:
 			self.net.netInitialize()
 		l = self.labels
 		if labels:
@@ -162,7 +160,7 @@ class Hcp:
 		return self.raw_run(args)
 
 	def raw_run(self, args):
-		outcome = subprocess.run(args)
+		outcome = subprocess.run(args, capture_output = True)
 		if outcome.returncode != 0:
 			raise Exception('Failure when running; ' + ' '.join(args))
 		return outcome
@@ -198,7 +196,7 @@ class HcpFunction(Hcp):
 		self.contName = None
 		self.hostName = None
 
-	def Run(self, *, flags=None):
+	def Run(self, *, flags=None, **kwargs):
 		f = ['-t','--rm']
 		if flags:
 			f += flags
@@ -206,7 +204,8 @@ class HcpFunction(Hcp):
 				   flags = f,
 				   labels = self.labels,
 				   contName = self.contName,
-				   hostName = self.hostName)
+				   hostName = self.hostName,
+				   **kwargs)
 
 class HcpService(Hcp):
 
@@ -329,7 +328,7 @@ class HcpAttestclient(HcpFunction):
 		self.contName = contName
 		self.hostName = hostName
 		if assetSigner:
-			p = Path(assetSigner).parent
+			p = Path(assetSigner)
 			self.flags += ['-v', str(p) + ':/signer']
 			self.envs['HCP_RUN_CLIENT_VERIFIER'] = '/signer'
 		self.envs['HCP_CLIENT_ATTEST_URL'] = attestURL
