@@ -8,7 +8,7 @@ from pathlib import Path
 from hashlib import sha256
 from multiprocessing import Process
 
-from hcp import HcpSwtpmsvc
+from hcp import HcpSwtpmsvc, HcpAttestclient, HcpNetwork
 from enroll_api import enroll_add, enroll_delete, enroll_query, enroll_find
 
 # The enroll_api functions take an 'args' object that contain inputs parsed
@@ -30,11 +30,13 @@ class HcpSwtpmBank:
 		     path=None,
 		     enrollAPI = 'http://localhost:5000',
 		     attestAPI = 'http://localhost:8080',
-		     cprefix = 'hcptest'):
+		     verifier = None,
+		     net = None):
 		self.path = path
 		self.enrollAPI = enrollAPI
 		self.attestAPI = attestAPI
-		self.cprefix = cprefix
+		self.verifier = verifier
+		self.net = net
 		self.entries = []
 		if not self.path:
 			self.path = mkdtemp()
@@ -91,9 +93,10 @@ class HcpSwtpmBank:
 		enrollargs.api = self.enrollAPI
 		for entry in self.entries:
 			if not entry['tpm']:
-				entry['tpm'] = HcpSwtpmsvc(path=entry['path'],
-						contName=self.cprefix +
-							f"swtpm{entry['index']}")
+				entry['tpm'] = HcpSwtpmsvc(net = self.net,
+						path=entry['path'],
+						contName=f"testswtpm{entry['index']}",
+						hostName=f"testswtpm{entry['index']}")
 				entry['tpm'].Initialize()
 				grind = sha256()
 				grind.update(open(entry['tpmEKpub'], 'rb').read())
@@ -210,8 +213,7 @@ class HcpSwtpmBank:
 			if pcattest > randrange(0, 100):
 				# attest
 				print('{idx} enrolled, attesting.'.format(idx=idx), end=' ')
-				# Unimplemented...
-				# self.Soak_locked_attest(entry)
+				self.Soak_locked_attest(entry)
 			else:
 				# unenroll
 				print('{idx} enrolled, unenrolling.'.format(idx=idx), end=' ')
@@ -256,6 +258,15 @@ class HcpSwtpmBank:
 			raise Exception('Enrollment \'delete\' failed')
 		entry['enrolled'].unlink()
 
+	def Soak_locked_attest(self, entry):
+		client = HcpAttestclient(net = self.net,
+				attestURL = self.attestAPI,
+				tpm2TCTI = f"swtpm:host=testswtpm{entry['index']},port=9876",
+				contName = f"testclient{entry['index']}",
+				hostName = f"testclient{entry['index']}",
+				assetSigner = self.verifier)
+		client.Run()
+
 if __name__ == '__main__':
 
 	import argparse
@@ -265,13 +276,13 @@ if __name__ == '__main__':
 		if not args.path:
 			print("Error, no path provided (--path)")
 			sys.exit(-1)
-		if not args.cprefix:
-			args.cprefix = 'hcptest'
-		args.bank = HcpSwtpmBank(path = args.path,
-				    num = args.num,
-				    enrollAPI = args.enrollapi,
-				    attestAPI = args.attestapi,
-				    cprefix = args.cprefix)
+		args.network = HcpNetwork(prefix = args.prefix, suffix = args.suffix)
+		args.bank = HcpSwtpmBank(net = args.network,
+					 path = args.path,
+					 num = args.num,
+					 enrollAPI = args.enrollapi,
+					 attestAPI = args.attestapi,
+					 verifier = args.verifier)
 	def cmd_test_create(args):
 		cmd_test_common(args)
 		args.bank.Initialize()
@@ -325,6 +336,13 @@ This tool manages and uses a corpus of TPM EK (Endorsement Keys).
 * If the number of entries to use in the corpus is not supplied (via
   '--num') it is presumed that the bank already exists.
 
+* If the namespace prefix is not supplied (via '--prefix'), it will
+  fallback to using the 'HCP_PREFIX' environment variable. Similarly,
+  the namespace suffix is supplied via '--suffix' or the 'HCP_SUFFIX'
+  environment variable. This allows software TPMs and attestation
+  clients to launch on the same network as the Attestation Service.
+  The network name is assumed to be "<prefix>network".
+
 * If the base URL for the Enrollment Service's management API is not
   supplied on the command line (via '--enrollapi'), it will fallback
   to using the 'HCP_ENROLLSVC_API_URL' environment variable.
@@ -333,25 +351,28 @@ This tool manages and uses a corpus of TPM EK (Endorsement Keys).
   command line (via '--attestapi'), it will fallback to using the
   'HCP_ATTESTSVC_API_URL' environment variable.
 
-* If the container-naming prefix is not supplied on the command line
-  (via '--cprefix'), it will fallback to using the 'HCP_CPREFIX'
-  environment variable. Otherwise "hcptest" will be used. Note that
-  containers must be created with distinct names, and without this
-  parameter, independent use of Docker on the same host system can be
-  compromised.
-
-* --
+* If the trust anchor for asset-signing is not supplied on the command
+  line (via '--verifier'), it will fallback to using the
+  'HCP_VERIFIER' environment variable.
 
 To see subcommand-specific help, pass '-h' to the subcommand.
 	"""
 	test_help_path = 'path for the corpus'
 	test_help_num = 'number of instances/EKpubs to support'
+	test_help_prefix = 'Namespace prefix for Docker network and other objects'
+	test_help_suffix = 'Namespace suffix for Docker network and other objects'
 	test_help_enrollapi = 'base URL for the Enrollment Service management interface'
 	test_help_attestapi = 'URL for the Attestation Service interface'
-	test_help_cprefix = 'String to prefix to all Docker container names'
+	test_help_verifier = 'Path to trust anchor for asset-signing'
 	parser = argparse.ArgumentParser(description = test_desc,
 					 epilog = test_epilog,
 					 formatter_class = fc)
+	default_prefix = os.environ.get('HCP_PREFIX')
+	if not default_prefix:
+		default_prefix = 'safeboot_hcp_'
+	default_suffix = os.environ.get('HCP_SUFFIX')
+	if not default_suffix:
+		default_suffix = 'devel'
 	parser.add_argument('--path',
 			   default = os.environ.get('HCP_EKBANK_PATH'),
 			   help = test_help_path)
@@ -359,15 +380,21 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 			   type = int,
 			   default = 0,
 			   help = test_help_num)
+	parser.add_argument('--prefix', metavar='<PREFIX>',
+			    default = default_prefix,
+			    help = test_help_prefix)
+	parser.add_argument('--suffix', metavar='<SUFFIX>',
+			    default = default_suffix,
+			    help = test_help_suffix)
 	parser.add_argument('--enrollapi', metavar='<URL>',
 			    default = os.environ.get('HCP_ENROLLSVC_API_URL'),
 			    help = test_help_enrollapi)
 	parser.add_argument('--attestapi', metavar='<URL>',
 			    default = os.environ.get('HCP_ATTESTSVC_API_URL'),
 			    help = test_help_attestapi)
-	parser.add_argument('--cprefix', metavar='<NAMEPREFIX>',
-			    default = os.environ.get('HCP_CPREFIX'),
-			    help = test_help_cprefix)
+	parser.add_argument('--verifier', metavar='<PATH>',
+			    default = os.environ.get('HCP_VERIFIER'),
+			    help = test_help_verifier)
 	subparsers = parser.add_subparsers()
 
 	# ::create
