@@ -89,10 +89,18 @@ def my_add():
     # op_add.sh script.
     p = os.path.join(tf.name, secure_filename(f.filename))
     f.save(p)
-    c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_add.sh', p, h])
-    return {
-        "returncode": c.returncode
-    }
+    c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_add.sh', p, h],
+                       stdout = subprocess.PIPE, stderr = subprocess.PIPE,
+                       text = True)
+    print(c.stdout)
+    if c.returncode != 0:
+        print("Failed operation, dumping stderr")
+        print(c.stderr, file = sys.stderr)
+        return {
+                    "returncode": c.returncode
+        }
+    j = json.loads(c.stdout)
+    return j
 
 @app.route('/v1/query', methods=['GET'])
 def my_query():
@@ -100,8 +108,12 @@ def my_query():
         return { "error": "ekpubhash not in request" }
     h = request.args['ekpubhash']
     c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_query.sh', h],
-                       stdout=subprocess.PIPE, text=True)
-    if (c.returncode != 0):
+                       stdout=subprocess.PIPE, stderr = subprocess.PIPE,
+                       text=True)
+    print(c.stdout)
+    if c.returncode != 0:
+        print("Failed operation, dumping stderr")
+        print(c.stderr, file = sys.stderr)
         abort(500)
     j = json.loads(c.stdout)
     return j
@@ -110,8 +122,12 @@ def my_query():
 def my_delete():
     h = request.form['ekpubhash']
     c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_delete.sh', h],
-                       stdout=subprocess.PIPE, text=True)
+                       stdout=subprocess.PIPE, stderr = subprocess.PIPE,
+                       text=True)
+    print(c.stdout)
     if (c.returncode != 0):
+        print("Failed operation, dumping stderr")
+        print(c.stderr, file = sys.stderr)
         abort(500)
     j = json.loads(c.stdout)
     return j
@@ -120,17 +136,21 @@ def my_delete():
 def my_find():
     h = request.args['hostname_suffix']
     c = subprocess.run(sudoargs + ['/hcp/enrollsvc/op_find.sh', h],
-                       stdout=subprocess.PIPE, text=True)
+                       stdout=subprocess.PIPE, stderr = subprocess.PIPE,
+                       text=True)
+    print(c.stdout)
     if (c.returncode != 0):
+        print("Failed operation, dumping stderr")
+        print(c.stderr, file = sys.stderr)
         abort(500)
     j = json.loads(c.stdout)
     return j
 
 @app.route('/v1/get-asset-signer', methods=['GET'])
 def assetSigner():
-	return send_file('/signer/key.pem',
-			 as_attachment = True,
-			 attachment_filename = 'asset-signer.pem')
+        return send_file('/signer/key.pem',
+                         as_attachment = True,
+                         attachment_filename = 'asset-signer.pem')
 
 if __name__ == "__main__":
     app.run()
