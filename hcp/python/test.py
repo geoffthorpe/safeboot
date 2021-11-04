@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import os
-from tempfile import mkdtemp
+from tempfile import mkdtemp, TemporaryDirectory
 from multiprocessing import Lock
 from random import randrange
 from pathlib import Path
@@ -9,7 +9,7 @@ from hashlib import sha256
 from multiprocessing import Process
 
 from hcp import HcpSwtpmsvc, HcpAttestclient, HcpNetwork
-from enroll_api import enroll_add, enroll_delete, enroll_query, enroll_find
+from enroll_api import enroll_add, enroll_delete, enroll_query, enroll_find, enroll_getAssetSigner
 
 # The enroll_api functions take an 'args' object that contain inputs parsed
 # from the command-line (via 'argparse'). We want to use the same functions
@@ -47,7 +47,9 @@ class HcpSwtpmBank:
 			print('Latching to existing bank', end=' ')
 			self.num = int(open(self.numFile, 'r').read())
 			print(f'of size {self.num}')
-			if self.num < num:
+			if not num:
+				pass
+			elif self.num < num:
 				print(f'Expanding bank from {self.num} to {num}')
 				self.num = num
 				open(self.numFile, 'w').write(f'{self.num}')
@@ -186,20 +188,29 @@ class HcpSwtpmBank:
 				print('{idx} already stopped'.format(idx=entry['index']))
 
 	def Soak(self, loop, threads, pcattest):
+		verifier = None
+		if pcattest > 0:
+			verifier = TemporaryDirectory()
+			enrollargs = HcpArgs()
+			enrollargs.api = self.enrollAPI
+			enrollargs.output = verifier.name + '/key.pem'
+			result, jr = enroll_getAssetSigner(enrollargs)
+			if not result:
+				raise Exception('Enrollment \'getAssetSigner\' failed')
 		children = []
 		for _ in range(threads):
-			p = Process(target=self.Soak_thread, args=(loop,pcattest,))
+			p = Process(target=self.Soak_thread, args=(loop,pcattest,verifier,))
 			p.start()
 			children.append(p)
 		while len(children):
 			p = children.pop()
 			p.join()
 
-	def Soak_thread(self, loop, pcattest):
+	def Soak_thread(self, loop, pcattest, verifier):
 		for _ in range(loop):
-			self.Soak_iteration(pcattest)
+			self.Soak_iteration(pcattest, verifier)
 
-	def Soak_iteration(self, pcattest):
+	def Soak_iteration(self, pcattest, verifier):
 		enrollargs = HcpArgs()
 		enrollargs.api = self.enrollAPI
 		res = False
@@ -212,7 +223,7 @@ class HcpSwtpmBank:
 			if pcattest > randrange(0, 100):
 				# attest
 				print('{idx} enrolled, attesting.'.format(idx=idx), end=' ')
-				self.Soak_locked_attest(entry)
+				self.Soak_locked_attest(entry, verifier)
 			else:
 				# unenroll
 				print('{idx} enrolled, unenrolling.'.format(idx=idx), end=' ')
@@ -257,13 +268,15 @@ class HcpSwtpmBank:
 			raise Exception('Enrollment \'delete\' failed')
 		entry['enrolled'].unlink()
 
-	def Soak_locked_attest(self, entry):
+	def Soak_locked_attest(self, entry, verifier):
+		if not entry['tpm'].Running():
+			raise Exception(f"Software TPM {entry['index']} not running")
 		client = HcpAttestclient(net = self.net,
 				attestURL = self.attestAPI,
 				tpm2TCTI = f"swtpm:host=testswtpm{entry['index']},port=9876",
 				contName = f"testclient{entry['index']}",
 				hostName = f"testclient{entry['index']}",
-				assetSigner = self.verifier)
+				assetSigner = verifier.name)
 		client.Run()
 
 if __name__ == '__main__':
@@ -280,8 +293,7 @@ if __name__ == '__main__':
 					 path = args.path,
 					 num = args.num,
 					 enrollAPI = args.enrollapi,
-					 attestAPI = args.attestapi,
-					 verifier = args.verifier)
+					 attestAPI = args.attestapi)
 	def cmd_test_create(args):
 		cmd_test_common(args)
 		args.bank.Initialize()
@@ -311,14 +323,17 @@ if __name__ == '__main__':
 		args.bank.AllStop()
 
 	def cmd_test_soak(args):
-		cmd_test_common(args)
-		args.bank.Initialize()
 		if args.loop < 1:
 			print(f"Error, illegal loop value ({args.loop})")
 			sys.exit(-1)
 		if args.threads < 1:
 			print(f"Error, illegal threads value ({args.threads})")
 			sys.exit(-1)
+		if not args.attestapi and args.pcattest > 0:
+			print("Error, no Attestation Service URL was provided")
+			sys.exit(-1)
+		cmd_test_common(args)
+		args.bank.Initialize()
 		args.bank.Soak(args.loop, args.threads, args.pcattest)
 
 	fc = argparse.RawDescriptionHelpFormatter
@@ -353,10 +368,6 @@ This tool manages and uses a corpus of TPM EK (Endorsement Keys).
   command line (via '--attestapi'), it will fallback to using the
   'HCP_ATTESTSVC_API_URL' environment variable.
 
-* If the trust anchor for asset-signing is not supplied on the command
-  line (via '--verifier'), it will fallback to using the
-  'HCP_VERIFIER' environment variable.
-
 To see subcommand-specific help, pass '-h' to the subcommand.
 	"""
 	test_help_path = 'path for the corpus'
@@ -365,7 +376,6 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 	test_help_suffix = 'Namespace suffix for Docker network and other objects'
 	test_help_enrollapi = 'base URL for the Enrollment Service management interface'
 	test_help_attestapi = 'URL for the Attestation Service interface'
-	test_help_verifier = 'Path to trust anchor for asset-signing'
 	parser = argparse.ArgumentParser(description = test_desc,
 					 epilog = test_epilog,
 					 formatter_class = fc)
@@ -394,9 +404,6 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 	parser.add_argument('--attestapi', metavar='<URL>',
 			    default = os.environ.get('HCP_ATTESTSVC_API_URL'),
 			    help = test_help_attestapi)
-	parser.add_argument('--verifier', metavar='<PATH>',
-			    default = os.environ.get('HCP_VERIFIER'),
-			    help = test_help_verifier)
 	subparsers = parser.add_subparsers()
 
 	# ::create
@@ -494,14 +501,11 @@ randomized selection of Enrollment and Attestation requests.
 	# Process the command line
 	func = None
 	args = parser.parse_args()
-	print(args)
 	if not args.func:
 		print("Error, no subcommand provided")
 		sys.exit(-1)
+	# There are no commands that don't need enrollapi, so check here
 	if not args.enrollapi:
 		print("Error, no Enrollment Service API URL was provided")
-		sys.exit(-1)
-	if not args.attestapi:
-		print("Error, no Attestation Service URL was provided")
 		sys.exit(-1)
 	args.func(args)
