@@ -23,6 +23,12 @@ import os
 import sys
 import argparse
 
+if os.environ.get('HCP_KERBEROS'):
+    from requests_kerberos import HTTPKerberosAuth, DISABLED
+    auth = HTTPKerberosAuth(mutual_authentication=DISABLED, force_preemptive=True)
+else:
+    auth = None
+
 # TODO: make this interface more import-friendly and less cmd-line-specific.
 # I.e. the enroll_*() functions tag an 'args' structure for all parameters,
 # direct from the argparse output. Should probably add an intermediate layer to
@@ -38,7 +44,7 @@ def enroll_add(args):
         'ekpub': ('ek.pub', open(args.ekpub, 'rb')),
         'hostname': (None, args.hostname)
     }
-    response = requests.post(args.api + '/v1/add', files=form_data)
+    response = requests.post(args.api + '/v1/add', files=form_data, auth=auth)
     jr = json.loads(response.content)
     try:
         rcode = jr['returncode']
@@ -53,10 +59,10 @@ def enroll_add(args):
 def do_query_or_delete(args, is_delete):
     if is_delete:
         form_data = { 'ekpubhash': (None, args.ekpubhash) }
-        response = requests.post(args.api + '/v1/delete', files=form_data)
+        response = requests.post(args.api + '/v1/delete', files=form_data, auth=auth)
     else:
         form_data = { 'ekpubhash': args.ekpubhash }
-        response = requests.get(args.api + '/v1/query', params=form_data)
+        response = requests.get(args.api + '/v1/query', params=form_data, auth=auth)
     jr = json.loads(response.content)
     return True, jr
 
@@ -68,12 +74,12 @@ def enroll_delete(args):
 
 def enroll_find(args):
     form_data = { 'hostname_suffix': args.hostname_suffix }
-    response = requests.get(args.api + '/v1/find', params=form_data)
+    response = requests.get(args.api + '/v1/find', params=form_data, auth=auth)
     jr = json.loads(response.content)
     return True, jr
 
 def enroll_getAssetSigner(args):
-    response = requests.get(args.api + '/v1/get-asset-signer')
+    response = requests.get(args.api + '/v1/get-asset-signer', auth=auth)
     if response.status_code != 200:
         raise Exception('API returned error code ' + response.status_code)
     if args.output:
