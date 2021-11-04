@@ -52,8 +52,7 @@ class HcpSwtpmBank:
 				self.num = num
 				open(self.numFile, 'w').write(f'{self.num}')
 			elif self.num > num and num > 0:
-				print(f'Error, real bank size {self.num} bigger than {num}')
-				raise Exception("Bank size bigger than expected")
+				print(f'Error, real bank size {self.num} bigger than {num}, ignoring the latter')
 		else:
 			print('Initializing new bank')
 			self.num = num
@@ -334,7 +333,10 @@ This tool manages and uses a corpus of TPM EK (Endorsement Keys).
   environment variable.
 
 * If the number of entries to use in the corpus is not supplied (via
-  '--num') it is presumed that the bank already exists.
+  '--num'), it will fallback to using the 'HCP_EKBANK_NUM' environment
+  variable. Note this is only used when creating an ekbank, an
+  existing ekbank already "knows" the number of entries it has, in
+  which case this option has no effect.
 
 * If the namespace prefix is not supplied (via '--prefix'), it will
   fallback to using the 'HCP_PREFIX' environment variable. Similarly,
@@ -378,7 +380,7 @@ To see subcommand-specific help, pass '-h' to the subcommand.
 			   help = test_help_path)
 	parser.add_argument('--num',
 			   type = int,
-			   default = 0,
+			   default = os.environ.get('HCP_EKBANK_NUM'),
 			   help = test_help_num)
 	parser.add_argument('--prefix', metavar='<PREFIX>',
 			    default = default_prefix,
