@@ -53,14 +53,17 @@ def enroll_add(args):
         'hostname': (None, args.hostname)
     }
     response = requests.post(args.api + '/v1/add', files=form_data, auth=auth)
-    jr = json.loads(response.content)
+    if response.status_code != 200:
+        print(f"Error, response status code was {response.status_code}")
+        rcode = -1
+        return False, None
     try:
+        jr = json.loads(response.content)
         rcode = jr['returncode']
     except KeyError:
-        print("Error, response has no 'returncode'")
-        print(jr)
+        print("Error, JSON decoding of response failed")
         rcode = -1
-    if (rcode != 0):
+    if rcode != 0:
         return False, jr
     return True, jr
 
@@ -71,7 +74,14 @@ def do_query_or_delete(args, is_delete):
     else:
         form_data = { 'ekpubhash': args.ekpubhash }
         response = requests.get(args.api + '/v1/query', params=form_data, auth=auth)
-    jr = json.loads(response.content)
+    if response.status_code != 200:
+        print(f"Error, response status code was {response.status_code}")
+        return False, None
+    try:
+        jr = json.loads(response.content)
+    except:
+        print("Error, JSON decoding of response failed")
+        return False, None
     return True, jr
 
 def enroll_query(args):
@@ -83,13 +93,21 @@ def enroll_delete(args):
 def enroll_find(args):
     form_data = { 'hostname_suffix': args.hostname_suffix }
     response = requests.get(args.api + '/v1/find', params=form_data, auth=auth)
-    jr = json.loads(response.content)
+    if response.status_code != 200:
+        print(f"Error, response status code was {response.status_code}")
+        return False, None
+    try:
+        jr = json.loads(response.content)
+    except:
+        print("Error, JSON decoding of response failed")
+        return False, None
     return True, jr
 
 def enroll_getAssetSigner(args):
     response = requests.get(args.api + '/v1/get-asset-signer', auth=auth)
     if response.status_code != 200:
-        raise Exception('API returned error code ' + response.status_code)
+        print(f"Error, response status code was {response.status_code}")
+        return False, None
     if args.output:
         open(args.output, 'wb').write(response.content)
     else:
@@ -202,7 +220,7 @@ if __name__ == '__main__':
                                      epilog=getAssetSigner_epilog)
     parser_g.add_argument('--output', metavar='<PATH>',
                           default = None,
-			  help=getAssetSigner_help_output)
+                          help=getAssetSigner_help_output)
     parser_g.set_defaults(func=enroll_getAssetSigner)
 
     # Process the command-line
@@ -218,4 +236,4 @@ if __name__ == '__main__':
         print("Error, API returned failure")
         sys.exit(-1)
     if json:
-	    print(json)
+            print(json)
