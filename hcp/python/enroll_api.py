@@ -23,11 +23,19 @@ import os
 import sys
 import argparse
 
-if os.environ.get('HCP_KERBEROS'):
-    from requests_kerberos import HTTPKerberosAuth, DISABLED
-    auth = HTTPKerberosAuth(mutual_authentication=DISABLED, force_preemptive=True)
-else:
-    auth = None
+auth = None
+if os.environ.get('HCP_GSSAPI'):
+    print('Enabling GSSAPI authentication')
+    try:
+        from requests_gssapi import HTTPSPNEGOAuth, DISABLED
+        auth = HTTPSPNEGOAuth(mutual_authentication=DISABLED, opportunistic_auth=True)
+    except ModuleNotFoundError:
+        print("'requests-gssapi' unavailable, falling back to 'requests-kerberos'")
+        try:
+            from requests_kerberos import HTTPKerberosAuth, DISABLED
+            auth = HTTPKerberosAuth(mutual_authentication=DISABLED, force_preemptive=True)
+        except ModuleNotFoundError:
+            print("'requests-kerberos' unavailable, falling back to no authentication")
 
 # TODO: make this interface more import-friendly and less cmd-line-specific.
 # I.e. the enroll_*() functions tag an 'args' structure for all parameters,
