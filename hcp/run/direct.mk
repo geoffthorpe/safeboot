@@ -50,6 +50,9 @@ $(TOP)/build/hcp/run: | $(TOP)/build/hcp
 HCP_RUN_DSPACE ?= safeboot_hcp_
 HCP_RUN_DTAG ?= devel
 
+# By default, support these three services
+HCP_RUN_SERVICES ?= enroll attest swtpm
+
 # In the dev/debug workflow, all containers default to attaching to a network
 # called "$(DSPACE)network";
 HCP_RUN_DNETWORKS ?= $(HCP_RUN_DSPACE)network
