@@ -271,22 +271,27 @@ cleanall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_clean)
 startall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_start) client_start
 stopall: $(foreach i,$(HCP_RUN_SERVICES),$(i)svc_stop)
 
-# This target allows you to shell into a running container (using docker exec).
-# If CID is set, it attempts to shell into the container it identifies,
-# otherwise a listing of running containers is given.
-enter:
 ifeq (,$(CID))
-	$Qecho "To shell into a running container, select the desired container by setting CID to"
-	$Qecho "the corresponding 'CONTAINER ID'. Note, you only need to specify enough of the"
-	$Qecho "initial hexadecimal characters to distinguish it from other containers."
+enter follow:
+	$Qecho "CID is not set, no container selected."
 	$Qecho
-	$Qecho "Currently running containers in this project;"
-	$Qdocker container ls --filter=label=$(HCP_RUN_DSPACE)all
+	$Qecho "Select the desired container by setting CID to the corresponding 'CONTAINER ID'."
+	$Qecho "Note, you only need to specify enough of the initial hexadecimal characters to"
+	$Qecho "distinguish it from other containers."
 	$Qecho
-	$Qecho "E.g.:   make enter CID=f00d"
+	$Qecho "Current project: DSPACE='$(HCP_RUN_DSPACE)', DTAG'$(HCP_RUN_DTAG)'"
+	$Qecho
+	$Qecho "Running containers;"
+	$Qdocker container ls --filter=label=safeboot_hcp_all \
+		--format='table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Image}}'
+	$Qecho
+	$Qecho "E.g.:   make $@ CID=f00d"
 	$Qecho
 else
+enter:
 	$Qdocker exec -it $(CID) /bin/bash
+follow:
+	$Qdocker logs -f $(CID)
 endif
 
 # Anything generating goodies under these directories should put a dependency
