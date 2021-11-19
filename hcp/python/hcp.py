@@ -288,7 +288,7 @@ class HcpService(Hcp):
 		self.path.rmdir()
 		return outcome
 
-	def Start(self):
+	def Start(self, **kwargs):
 		self.Initialize()
 		if not self.running:
 			flags = ['-t','-d','--cidfile', str(self.path_cid)]
@@ -299,7 +299,8 @@ class HcpService(Hcp):
 				    flags = flags,
 				    labels = self.labels,
 				    contName = self.contName,
-				    hostName = self.hostName)
+				    hostName = self.hostName,
+				    **kwargs)
 			self.running = True
 
 	def Stop(self):
