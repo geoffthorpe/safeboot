@@ -43,6 +43,9 @@ class HcpSwtpmBank:
 		if not os.path.isdir(self.path):
 			os.mkdir(self.path)
 		self.numFile = self.path + '/num'
+		self.socketDir = self.path + '/sockets'
+		if not os.path.isdir(self.socketDir):
+			os.mkdir(self.socketDir)
 		if os.path.isfile(self.numFile):
 			print('Latching to existing bank', end=' ')
 			self.num = int(open(self.numFile, 'r').read())
@@ -65,7 +68,8 @@ class HcpSwtpmBank:
 			entry = {
 				'path': self.path + '/t{num}'.format(num = n),
 				'index': n,
-				'lock': Lock()
+				'lock': Lock(),
+				'socketName': f'{n}'
 				}
 			entry['tpm'] = None
 			entry['tpmEKpub'] = entry['path'] + '/state/tpm/ek.pub'
@@ -79,6 +83,7 @@ class HcpSwtpmBank:
 		# If we Delete and then Initialize, the directory needs to be recreated.
 		if not os.path.isdir(self.path):
 			os.mkdir(self.path)
+			os.mkdir(self.socketDir)
 			open(self.numFile, 'w').write(f'{self.num}')
 		# So here's the idea. We want to enroll each TPM against a
 		# unique hostname, and then the first time we try to unenroll
@@ -94,10 +99,15 @@ class HcpSwtpmBank:
 		enrollargs.api = self.enrollAPI
 		for entry in self.entries:
 			if not entry['tpm']:
+				socketMount = {'source': self.socketDir,
+					       'dest': '/sockets'}
+				socketPath = f"/sockets/{entry['socketName']}"
 				entry['tpm'] = HcpSwtpmsvc(net = self.net,
 						path=entry['path'],
 						contName=f"testswtpm{entry['index']}",
-						hostName=f"testswtpm{entry['index']}")
+						hostName=f"testswtpm{entry['index']}",
+						mounts = [socketMount])
+				entry['tpm'].envs['HCP_SOCKET'] = socketPath
 				entry['tpm'].Initialize()
 				grind = sha256()
 				grind.update(open(entry['tpmEKpub'], 'rb').read())
@@ -140,6 +150,7 @@ class HcpSwtpmBank:
 			entry['tpm'].Delete()
 			entry['tpm'] = None
 		Path(self.numFile).unlink()
+		os.rmdir(self.socketDir)
 		os.rmdir(self.path)
 
 	def AllIn(self):
@@ -271,9 +282,12 @@ class HcpSwtpmBank:
 	def Soak_locked_attest(self, entry, verifier):
 		if not entry['tpm'].Running():
 			raise Exception(f"Software TPM {entry['index']} not running")
+		socketMount = {'source': self.socketDir, 'dest': '/sockets'}
+		socketPath = f"/sockets/{entry['socketName']}"
 		client = HcpAttestclient(net = self.net,
 				attestURL = self.attestAPI,
-				tpm2TCTI = f"swtpm:host=testswtpm{entry['index']},port=9876",
+				mounts = [socketMount],
+				tpm2TCTI = f"swtpm:path={socketPath}",
 				contName = f"testclient{entry['index']}",
 				hostName = f"testclient{entry['index']}",
 				assetSigner = verifier.name)
