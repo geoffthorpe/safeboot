@@ -19,8 +19,8 @@ swtpm_setup --tpm2 --createek --display --tpmstate $TPMDIR --config /dev/null
 # Temporarily start the TPM on an unusual port (and sleep a second to be sure
 # it's alive before we hit it). TODO: Better would be to tail_wait the output.
 swtpm socket --tpm2 --tpmstate dir=$TPMDIR \
-	--server type=tcp,bindaddr=127.0.0.1,port=19283 \
-	--ctrl type=tcp,bindaddr=127.0.0.1,port=19284 \
+	--server type=unixio,path=/throwaway \
+	--ctrl type=unixio,path=/throwaway.ctrl \
 	--flags startup-clear &
 THEPID=$!
 disown %
@@ -30,7 +30,7 @@ sleep 1
 # Now pressure it into creating the EK (and why didn't "swtpm_setup --createek"
 # already achieve this?) This is natively in TPM2B_PUBLIC format, but generate
 # the PEM equivalent at the same time, as this can come in handy with testing.
-export TPM2TOOLS_TCTI=swtpm:host=localhost,port=19283
+export TPM2TOOLS_TCTI=swtpm:path=/throwaway
 tpm2 createek -c $TPMDIR/ek.ctx -u $TPMDIR/ek.pub
 tpm2 print -t TPM2B_PUBLIC -f PEM $TPMDIR/ek.pub > $TPMDIR/ek.pem
 chmod a+r $TPMDIR/ek.pub
