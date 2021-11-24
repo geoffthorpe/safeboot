@@ -113,6 +113,10 @@ if [[ -d "/install/lib" ]]; then
 	fi
 fi
 
+if [[ -z "$DIAGNOSTICS" ]]; then
+	export DIAGNOSTICS="false"
+fi
+
 if [[ `whoami` == "root" ]]; then
 	# We're root, so we write the env-vars we got (from docker-run) to
 	# /etc/environment so that non-root paths through common.sh source
@@ -148,6 +152,7 @@ if [[ `whoami` == "root" ]]; then
 	echo "GENCERT_INCLUDE_SAN_PKINIT=true" >> $tmpf
 	echo "GENCERT_INCLUDE_SAN_DNSNAME=true" >> $tmpf
 	echo "GENCERT_X509_TOOLING=OpenSSL" >> $tmpf
+	echo "DIAGNOSTICS=$DIAGNOSTICS" >> $tmpf
 	mv $tmpf /safeboot/enroll.conf
 fi
 
