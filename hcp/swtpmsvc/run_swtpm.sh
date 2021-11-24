@@ -20,6 +20,15 @@ fi
 
 echo "Running 'swtpmsvc' service (for $HCP_SWTPMSVC_ENROLL_HOSTNAME)"
 
+# Remove sockets on exit
+function cleanup_trap
+{
+	echo "Cleaning up sockets on exit"
+	rm -f $HCP_SOCKET
+	rm -f $HCP_SOCKET.ctrl
+}
+trap cleanup_trap EXIT
+
 # Start the software TPM
 
 if [[ -n "$HCP_SOCKET" ]]; then
