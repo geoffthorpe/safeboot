@@ -398,7 +398,7 @@ $(name)_stop: $(name)_stop$(csuffix))
 $(name)_stop$(csuffix): | $(HCP_RUN_LOGS)
 $(name)_stop$(csuffix):
 	$(if $(cstarted),$(if $(crunning),\
-		$Sdocker container stop --time=0 `cat $(cid)`,\
+		$Sdocker container stop --time=1 `cat $(cid)`,\
 		$Qecho "'$(name)$(csuffix)' already exited, was there a problem?")
 	$Sdocker container wait `cat $(cid)` > $(clastExit)
 	$Sdocker logs `cat $(cid)` >> $(log) 2>> $(log).stderr

@@ -308,7 +308,7 @@ class HcpService(Hcp):
 		if self.running:
 			with open(str(self.path_cid), 'r') as f:
 				cid = f.readline()
-			self.raw_run(['docker', 'container', 'kill', cid])
+			self.raw_run(['docker', 'container', 'stop', '--time=1', cid])
 			self.raw_run(['docker', 'container', 'rm', cid])
 			self.path_cid.unlink()
 			self.running = False
