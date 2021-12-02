@@ -1,0 +1,35 @@
+diff --git a/hcp/builder/Dockerfile b/hcp/builder/Dockerfile
+index 4cafb46..be180b0 100644
+--- a/hcp/builder/Dockerfile
++++ b/hcp/builder/Dockerfile
+@@ -8,3 +8,5 @@ RUN apt-get install -y libfile-slurp-perl python3-cryptography
+ 
+ COPY git /usr/bin
+ RUN chmod 755 /usr/bin/git
++
++RUN apt-get install -y libcmocka-dev
+diff --git a/hcp/submodules/Makefile b/hcp/submodules/Makefile
+index 920f2fb..eb94186 100644
+--- a/hcp/submodules/Makefile
++++ b/hcp/submodules/Makefile
+@@ -55,15 +55,17 @@ $(HCP_SUBMODULES_OUT)/tpm2-tss.autogened:
+ 	$Q$(HCP_SUBMODULES_TPM2-TSS_RUN) "cd /tpm2-tss ; ./bootstrap"
+ 	$Qtouch $@
+ 
+-CMD_TPM2-TSS_CFG := cd /tpm2-tss ;
+-CMD_TPM2-TSS_CFG += ./configure --disable-doxygen-doc
++CMD_TPM2-TSS_CFG := cd /tpm2-tss &&
++CMD_TPM2-TSS_CFG += ./configure --disable-doxygen-doc --enable-unit
+ CMD_TPM2-TSS_CFG += --prefix=$(HCP_SUBMODULES_INSTALL_DEST)
+ $(HCP_SUBMODULES_OUT)/tpm2-tss.configured: $(HCP_SUBMODULES_OUT)/tpm2-tss.autogened
+ $(HCP_SUBMODULES_OUT)/tpm2-tss.configured:
+ 	$Q$(HCP_SUBMODULES_TPM2-TSS_RUN) "$(CMD_TPM2-TSS_CFG)"
+ 	$Qtouch $@
+ 
+-CMD_TPM2-TSS_COMPILE := cd /tpm2-tss ; make $(SAFEBOOT_HCP_SUBMODULES_MAKE_PARALLEL)
++CMD_TPM2-TSS_COMPILE := cd /tpm2-tss &&
++CMD_TPM2-TSS_COMPILE += make $(SAFEBOOT_HCP_SUBMODULES_MAKE_PARALLEL) &&
++CMD_TPM2-TSS_COMPILE += make check && echo COOL
+ $(HCP_SUBMODULES_OUT)/tpm2-tss.compiled: $(HCP_SUBMODULES_OUT)/tpm2-tss.configured
+ $(HCP_SUBMODULES_OUT)/tpm2-tss.compiled:
+ 	$Q$(HCP_SUBMODULES_TPM2-TSS_RUN) "$(CMD_TPM2-TSS_COMPILE)"
