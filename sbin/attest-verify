@@ -68,12 +68,14 @@ def verify(quote, quote_valid):
 	if not os.path.exists(ekdir):
 		ekdir = os.path.join(db_path, ekhash[0:2], ekhash)
 		if not os.path.exists(ekdir):
-			logging.warning(f"{ekhash=}: can't find matching enrollment")
+			logging.warning(f"{ekhash}: can't find matching enrollment")
 			return 100
+		if not os.path.exists(f"{ekdir}/hostname"):
+			logging.warning(f"{ekhash}: enrollment not yet complete")
 
 	# default policy is to reject any invalid quotes
 	if quote_valid != "True":
-		logging.warning(f"{ekhash=}: rejecting invalid quote")
+		logging.warning(f"{ekhash}: rejecting invalid quote")
 		return 99
 
 	if os.path.exists(os.path.join(ekdir, 'phase2')):
@@ -87,23 +89,23 @@ def verify(quote, quote_valid):
 		with open(os.path.join(ekdir, "pcrs")) as pcrs_file:
 			valid_pcrs = yaml.safe_load(pcrs_file)
 		if valid_pcrs is None:
-			logging.warning(f"{ekhash=}: rejecting unknown machine")
+			logging.warning(f"{ekhash}: rejecting unknown machine")
 			return 99
 
 		if not pcr_validate(valid_pcrs['pcrs'], quote['pcrs']):
-			logging.warning(f"{ekhash=}: rejecting bad PCRs")
+			logging.warning(f"{ekhash}: rejecting bad PCRs")
 			return 99
 
 	# the eventlog meets the policy requirements
 	# so output the secret for encoding by the attestation server
-	logging.info(f"{ekhash=}: sending secrets")
+	logging.info(f"{ekhash}: sending secrets")
 
 	sub = subprocess.run(["tar", "cf", "-", "-C", ekdir, "."],
 		stdout=sys.stdout,
 		stderr=sys.stderr,
 	)
 	if sub.returncode != 0:
-		logging.warning(f"{ekhash=}: asset-packing failed")
+		logging.warning(f"{ekhash}: asset-packing failed")
 
 	return sub.returncode
 

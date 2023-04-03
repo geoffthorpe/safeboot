@@ -25,7 +25,7 @@ handler to the attesting machine.
 
 """
 import flask
-from flask import request, abort, send_file
+from flask import request, abort, send_file, make_response
 import subprocess
 import os, sys
 from stat import *
@@ -64,7 +64,7 @@ def attest_verify(quote_file):
 	if subtav.returncode != 0:
 		log(f"Error, received quote was invalid")
 		log(f"{subtav.stderr}")
-		return (400, "TPM2_ATTEST_VERIFY FAILED")
+		return "Error: TPM2_ATTEST_VERIFY failed", 400
 
 	# The output contains YAML formatted hash of the EK and the PCRs
 	quote = yaml.safe_load(subtav.stdout)
@@ -74,7 +74,7 @@ def attest_verify(quote_file):
 
 	if 'ekhash' not in quote:
 		log(f"Error, received quote had no 'ekhash'")
-		return (400, "TPM2_ATTEST_EKHASH FAILED")
+		return "Error: TPM2_ATTEST_EKHASH failed", 400
 
 	ekhash = quote['ekhash']
 	log(f"INFO: ekhash is {ekhash}")
@@ -86,7 +86,7 @@ def attest_verify(quote_file):
 	# Other PCRs may have values, which is the responsibility
 	# of the verifier to check.
 	if alg not in quote['pcrs']:
-		log(f"{ekhash=}: quote does not have hash {alg}")
+		log(f"{ekhash}: quote does not have hash {alg}")
 	quote_pcrs = quote['pcrs'][alg]
 
 	# XXX We need a way to configure whether the eventlog is optional
@@ -100,9 +100,9 @@ def attest_verify(quote_file):
 				quote_pcr = quote_pcrs[pcr_index]
 				if quote_pcr != eventlog_pcr:
 					log(f"Error, quote/event-log mismatch")
-					log(f"{ekhash=}: {pcr_index=} {quote_pcr=} != {eventlog_pcr=}")
-					return (400, "EVENTLOG_PCR FAILED")
-				log(f"{ekhash=}: {pcr_index=} {quote_pcr=} good")
+					log(f"{ekhash}: {pcr_index} {quote_pcr} != {eventlog_pcr}")
+					return "Error: EVENTLOG_PCR failed", 400
+				log(f"{ekhash}: {pcr_index} {quote_pcr} good")
 
 	# the quote, eventlog and PCRS are consistent, so ask the verifier to
 	# process the eventlog and decide if the eventlog meets policy for
@@ -114,10 +114,10 @@ def attest_verify(quote_file):
 
 	if subavv.returncode != 0:
 		if (subavv.returncode == 100):
-			return (404, f"Unrecognised TPM {ekhash}")
+			return make_response(f"Error: unrecognised TPM {ekhash}", 404)
 		log(f"{subavv.stderr}")
-		log(f"Error, unknown attestation failure {subavv.returncode}\n{err_output}")
-		return (400, "ATTEST_VERIFY FAILED")
+		log(f"Error, unknown attestation failure {subavv.returncode}\n{subavv.stderr}")
+		return "Error: ATTEST_VERIFY failed", 400
 
 	# read the (binary) response from the subprocess stdout
 	response = subavv.stdout
@@ -130,9 +130,9 @@ def attest_verify(quote_file):
 	if subtas.returncode != 0:
 		log(f"Error, failed to seal assets")
 		log(f"{subtas.stderr}")
-		return (500, "ATTEST_SEAL FAILED")
+		return "Error: ATTEST_SEAL failed", 500
 
-	return (200, subtas.stdout)
+	return subtas.stdout, 200
 
 # The flask details;
 
@@ -141,7 +141,7 @@ app.config["DEBUG"] = True
 
 @app.route('/', methods=['GET'])
 def home_get():
-    return { "error": "GET request, but this service only supports POST" }
+    return make_response("Error: GET request, but this service only supports POST", 405)
 
 @app.route('/', methods=['POST'])
 def home_post():
@@ -162,9 +162,9 @@ def home_post():
     p = os.path.join(tf.name, secure_filename(f.filename))
     f.save(p)
     # Pass the saved quote file (by path) to the attestation code
-    rcode, rbody = attest_verify(p)
+    rbody, rcode = attest_verify(p)
     if (rcode != 200):
-        return { "error": "attestation failed" }, rcode
+        return make_response("Error: attestation failed", rcode)
     # Put the output in a file in the temp directory and send it.
     p = os.path.join(tf.name, 'output')
     ofd = os.open(p, os.O_RDWR | os.O_CREAT)
